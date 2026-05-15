@@ -148,7 +148,7 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return pdf.output()
+    return pdf.output(dest='S')
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
@@ -193,23 +193,23 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    # 1. Generiši PDF sadržaj
+    # Generisanje PDF-a
     pdf_output = create_pdf_data(edited_df)
     
-    # 2. Pretvori u bajtove ako već nisu (rešava "None" i greške enkodinga)
-    if isinstance(pdf_output, str):
-        pdf_bytes = pdf_output.encode('latin-1')
+    # Provera da li imamo podatke da aplikacija ne bi pukla
+    if pdf_output:
+        # Pretvaramo string u bajtove (neophodno za Streamlit)
+        final_pdf = pdf_output.encode('latin-1')
+        
+        st.download_button(
+            label="📥 PREUZMI PDF IZVEŠTAJ",
+            data=final_pdf,
+            file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
     else:
-        pdf_bytes = pdf_output
-
-    # 3. Dugme za preuzimanje
-    st.download_button(
-        label="📥 PREUZMI PDF IZVEŠTAJ",
-        data=pdf_bytes,
-        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+        st.error("Greška pri generisanju PDF-a. Podaci su prazni.")
 
 # ==========================================
 # 5. SIDEBAR (BACKUP, RESTORE, DELETE)
