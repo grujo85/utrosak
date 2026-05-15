@@ -149,7 +149,7 @@ def create_pdf_data(dataframe):
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
     # Dodata destinacija 'S' (izvezi kao string/bajtove) i enkoding
-return pdf.output(dest='S').encode('latin-1')
+    return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
