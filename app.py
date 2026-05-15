@@ -148,8 +148,13 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    # Koristimo output('S') da dobijemo byte-string i pretvorimo ga u prave bajtove
-    return bytes(pdf.output())
+    # Generišemo sadržaj u memoriju
+    pdf_out = pdf.output(dest='S')
+    
+    # Ako je string, enkodujemo ga u bajtove (za Streamlit)
+    if isinstance(pdf_out, str):
+        return pdf_out.encode('latin-1')
+    return pdf_out
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
@@ -194,14 +199,10 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    # 1. Generiši bajtove
-    try:
-        pdf_bytes = create_pdf_data(edited_df)
-    except Exception as e:
-        st.error(f"Greška pri pravljenju PDF-a: {e}")
-        pdf_bytes = None
-
-    # 2. Samo ako imamo podatke, prikaži dugme
+    # Pozivamo funkciju
+    pdf_bytes = create_pdf_data(edited_df)
+    
+    # Prikazujemo dugme samo ako podaci postoje (da izbegnemo grešku)
     if pdf_bytes:
         st.download_button(
             label="📥 PREUZMI PDF IZVEŠTAJ",
