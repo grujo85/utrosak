@@ -24,6 +24,7 @@ def init_db():
 
 init_db()
 
+# Kompletan šifarnik materijala
 MATERIJAL_STRUKTURA = {
     "NOSAČI I REGALI": ["Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600"],
     "OPREMA ZA REGALE": ["LR Krivina", "LR T-komad", "Poklopac regala", "C-šina 30x20", "C-šina 41x21", "Brezon M8", "Brezon M10"],
@@ -38,6 +39,9 @@ MATERIJAL_STRUKTURA = {
     "RADOVI": ["MONTAŽA", "DEMONTAŽA"]
 }
 
+# ==========================================
+# 2. PDF KLASA (ELMAR U FOOTERU)
+# ==========================================
 class ElektroPDF(FPDF):
     def header(self):
         self.set_auto_page_break(auto=True, margin=15)
@@ -45,6 +49,7 @@ class ElektroPDF(FPDF):
             self.add_font("DejaVu", "", FONT_FILE)
             self.set_font("DejaVu", "", 14)
         else: self.set_font("Helvetica", "B", 14)
+        
         if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
@@ -57,11 +62,11 @@ class ElektroPDF(FPDF):
         self.set_y(-15)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
         self.set_text_color(120)
-        # ISPRAVLJENO: Nema broja strane, samo naziv firme centrirano
+        # Samo naziv firme, bez broja strane
         self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", align="C")
 
 # ==========================================
-# 4. POMOĆNE FUNKCIJE
+# 3. FUNKCIJA ZA PDF
 # ==========================================
 def create_pdf_data(dataframe):
     pdf = ElektroPDF()
@@ -73,7 +78,7 @@ def create_pdf_data(dataframe):
     
     pdf.add_page()
     
-    # GLAVNA TABELA
+    # GLAVNA TABELA (SVI UNOSI)
     pdf.set_fill_color(49, 130, 206); pdf.set_text_color(255)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
     w_cols = [25, 35, 50, 45, 35]
@@ -83,10 +88,8 @@ def create_pdf_data(dataframe):
 
     pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
     for i, r in dataframe.iterrows():
-        if i % 2 == 0:
-            pdf.set_fill_color(248, 248, 248)
-        else:
-            pdf.set_fill_color(255, 255, 255)
+        if i % 2 == 0: pdf.set_fill_color(248, 248, 248)
+        else: pdf.set_fill_color(255, 255, 255)
             
         pdf.cell(25, 8, str(r['datum']), 0, 0, "C", True)
         pdf.cell(35, 8, str(r['orman']), 0, 0, "C", True)
@@ -94,7 +97,7 @@ def create_pdf_data(dataframe):
         pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
         pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-    # REKAPITULACIJA
+    # REKAPITULACIJA (PAMETAN PRELAZ NA LIST)
     if pdf.get_y() > 180: pdf.add_page()
     else: pdf.ln(10)
 
@@ -149,7 +152,7 @@ def create_pdf_data(dataframe):
     return pdf.output()
 
 # ==========================================
-# 5. STREAMLIT UI
+# 4. STREAMLIT INTERFEJS
 # ==========================================
 st.title("ELEKTRO-LOG BUSINESS ⚡")
 
@@ -176,6 +179,7 @@ if submit and u_orman:
     conn.commit(); conn.close(); st.rerun()
 
 st.divider()
+
 conn = sqlite3.connect(DB_NAME)
 df = pd.read_sql_query("SELECT * FROM radovi ORDER BY orman ASC, id DESC", conn)
 conn.close()
@@ -185,21 +189,33 @@ if not df.empty:
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
     if not edited_df.equals(df):
-        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi")
+        conn = sqlite3.connect(DB_NAME)
+        conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit(); conn.close(); st.rerun()
+        conn.commit()
+        conn.close()
+        st.rerun()
 
-    # DOWNLOAD PDF - ODMAH SPREMAN
+    # DOWNLOAD DUGME JE ODMAH TU
     pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
-                       file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
-                       mime="application/pdf", use_container_width=True)
+    st.download_button(
+        label="📥 PREUZMI PDF IZVEŠTAJ",
+        data=bytes(pdf_bytes), 
+        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
+        mime="application/pdf", 
+        use_container_width=True
+    )
 
-# SIDEBAR
+# SIDEBAR - ADMINISTRACIJA
 st.sidebar.title("⚙️ Administracija")
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
+
 if st.sidebar.button("🗑️ OBRIŠI SVE"):
-    if st.sidebar.checkbox("Potvrđujem"):
-        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close(); st.rerun()
+    if st.sidebar.checkbox("Potvrđujem brisanje"):
+        conn = sqlite3.connect(DB_NAME)
+        conn.execute("DELETE FROM radovi")
+        conn.commit()
+        conn.close()
+        st.rerun()
