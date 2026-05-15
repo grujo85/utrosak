@@ -10,8 +10,7 @@ from fpdf import FPDF
 # ==========================================
 st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
-FONT_FILE = "DejaVuSans.ttf"
-FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
+FONT_PATH = "DejaVuSans.ttf" # Proveri da li je ovaj fajl na GitHub-u!
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -23,6 +22,17 @@ def init_db():
     conn.close()
 
 init_db()
+
+# Funkcija za "čišćenje" teksta ako nema fonta (da ne puca PDF)
+def clean_text(text):
+    if not os.path.exists(FONT_PATH):
+        replacements = {
+            "š": "s", "Š": "S", "ć": "c", "Ć": "C", "č": "c", "Č": "C",
+            "ž": "z", "Ž": "Z", "đ": "dj", "Đ": "Dj"
+        }
+        for char, replacement in replacements.items():
+            text = text.replace(char, replacement)
+    return str(text)
 
 MATERIJAL_STRUKTURA = {
     "NOSAČI I REGALI": ["Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600"],
@@ -44,9 +54,9 @@ MATERIJAL_STRUKTURA = {
 class ElektroPDF(FPDF):
     def header(self):
         self.set_auto_page_break(auto=True, margin=15)
-        if os.path.exists(FONT_FILE):
-            self.add_font("DejaVu", "", FONT_FILE)
-            self.set_font("DejaVu", "", 12)
+        if os.path.exists(FONT_PATH):
+            self.add_font("CustomFont", "", FONT_PATH)
+            self.set_font("CustomFont", "", 12)
         else:
             self.set_font("Helvetica", "B", 12)
         
@@ -57,22 +67,16 @@ class ElektroPDF(FPDF):
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
         self.ln(5)
 
-    def footer(self):
-        self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(128)
-        self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", 0, 0, "C")
-
 # ==========================================
 # 3. PDF GENERACIJA
 # ==========================================
 def generate_pdf_bytes(df_input):
     pdf = ElektroPDF()
-    if os.path.exists(FONT_FILE):
-        pdf.add_font("DejaVu", "", FONT_FILE)
-        pdf.set_font("DejaVu", "", 10)
+    if os.path.exists(FONT_PATH):
+        pdf.add_font("CustomFont", "", FONT_PATH)
+        pdf.set_font("CustomFont", "", 10)
     else:
-        pdf.set_font("Arial", "", 10)
+        pdf.set_font("Helvetica", "", 10)
     
     pdf.add_page()
     
@@ -88,41 +92,38 @@ def generate_pdf_bytes(df_input):
     # Podaci
     pdf.set_text_color(0)
     for i, r in df_input.iterrows():
-        pdf.cell(25, 8, str(r['datum']), 1, 0, "C")
-        pdf.cell(35, 8, str(r['orman']), 1, 0, "C")
-        pdf.cell(55, 8, str(r['tip']), 1, 0, "L")
-        pdf.cell(45, 8, str(r['opis'])[:20], 1, 0, "L")
+        pdf.cell(25, 8, clean_text(r['datum']), 1, 0, "C")
+        pdf.cell(35, 8, clean_text(r['orman']), 1, 0, "C")
+        pdf.cell(55, 8, clean_text(r['tip']), 1, 0, "L")
+        pdf.cell(45, 8, clean_text(r['opis'])[:20], 1, 0, "L")
         pdf.cell(30, 8, f"{r['kol']} {r['jed']}", 1, 1, "R")
 
     # Rekapitulacija
     pdf.ln(10)
     pdf.set_fill_color(230, 230, 230)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(190, 10, "ZBIRNA REKAPITULACIJA", 1, 1, "C", True)
-    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(190, 10, clean_text("ZBIRNA REKAPITULACIJA"), 1, 1, "C", True)
 
     rekap = df_input.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-    
     ukupno_kablovi = 0
     ukupno_regali = 0
 
     for _, row in rekap.iterrows():
-        is_kabel = any(x in row['tip'].upper() for x in ["PP-Y", "N2XH", "NHXH", "PP00", "SKS", "H07", "LIYCY", "UTP", "FTP"])
-        is_regal = "REGAL" in row['tip'].upper()
+        tip_upper = str(row['tip']).upper()
+        is_kabel = any(x in tip_upper for x in ["PP-Y", "N2XH", "NHXH", "PP00", "SKS", "H07", "LIYCY", "UTP", "FTP"])
+        is_regal = "REGAL" in tip_upper
         
         if is_kabel: ukupno_kablovi += row['kol']
         if is_regal: ukupno_regali += row['kol']
 
-        pdf.cell(140, 8, f" {row['tip']} ({row['jed']})", 1, 0, "L")
+        pdf.cell(140, 8, f" {clean_text(row['tip'])} ({row['jed']})", 1, 0, "L")
         pdf.cell(50, 8, f"{row['kol']:.2f} ", 1, 1, "R")
 
     pdf.set_fill_color(240, 245, 255)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(140, 9, " SVI REGALI ZAJEDNO (m)", 1, 0, "L", True)
+    pdf.cell(140, 9, clean_text(" SVI REGALI ZAJEDNO (m)"), 1, 0, "L", True)
     pdf.cell(50, 9, f"{ukupno_regali:.2f} m ", 1, 1, "R", True)
     
     pdf.set_fill_color(220, 235, 255)
-    pdf.cell(140, 9, " UKUPNO SVIH KABLOVA (m)", 1, 0, "L", True)
+    pdf.cell(140, 9, clean_text(" UKUPNO SVIH KABLOVA (m)"), 1, 0, "L", True)
     pdf.cell(50, 9, f"{ukupno_kablovi:.2f} m ", 1, 1, "R", True)
 
     return bytes(pdf.output())
@@ -174,7 +175,6 @@ if not df.empty:
         conn.close()
         st.rerun()
 
-    # PDF Download deo - bez ispisivanja None
     pdf_data = generate_pdf_bytes(edited_df)
     st.download_button(
         label="📥 PREUZMI PDF IZVEŠTAJ",
@@ -184,7 +184,7 @@ if not df.empty:
         use_container_width=True
     )
 
-# SIDEBAR (ADMINISTRACIJA)
+# SIDEBAR
 st.sidebar.title("⚙️ Administracija")
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
@@ -196,7 +196,6 @@ up_file = st.sidebar.file_uploader("Ubaci backup .db fajl", type="db")
 if up_file and st.sidebar.button("POVRATI PODATKE"):
     with open(DB_NAME, "wb") as f:
         f.write(up_file.getbuffer())
-    st.success("Podaci su uspešno vraćeni!")
     st.rerun()
 
 st.sidebar.markdown("---")
