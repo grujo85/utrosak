@@ -57,9 +57,7 @@ TIPOVI_MATERIJALA = [
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
-        # Auto prelazak na novu stranu
         self.set_auto_page_break(auto=True, margin=15)
-        
         has_font = os.path.exists(FONT_FILE)
         if has_font:
             self.add_font("DejaVu", "", FONT_FILE)
@@ -119,7 +117,8 @@ if submit and u_orman:
 # ==========================================
 st.divider()
 conn = sqlite3.connect(DB_NAME)
-df = pd.read_sql_query("SELECT * FROM radovi ORDER BY id DESC", conn)
+# OVDE JE DODATO: ORDER BY orman ASC za azbučni red
+df = pd.read_sql_query("SELECT * FROM radovi ORDER BY orman ASC, id DESC", conn)
 conn.close()
 
 if not df.empty:
@@ -147,7 +146,7 @@ if not df.empty:
         
         pdf.add_page()
         
-        # ZAGLAVLJE TABELE
+        # GLAVNA TABELA RADOVA
         pdf.set_fill_color(49, 130, 206)
         pdf.set_text_color(255)
         if has_bold: pdf.set_font("DejaVu", "B", 10)
@@ -158,7 +157,6 @@ if not df.empty:
         pdf.cell(35, 10, "KOLIČINA", border=1, align="C", fill=True)
         pdf.ln()
 
-        # PODACI
         pdf.set_text_color(0)
         pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
         for _, r in df.iterrows():
@@ -169,17 +167,15 @@ if not df.empty:
             pdf.cell(35, 8, f"{r['kol']} {r['jed']}", border=1, align="C")
             pdf.ln()
 
-        # --- ZBIRNA REKAPITULACIJA (Dizajn sa slike) ---
-        # Provera preostalog mesta: ako je manje od 50mm, pređi na novu stranu
-        if pdf.get_y() > 220:
-            pdf.add_page()
-        else:
-            pdf.ln(10)
+        # REKAPITULACIJA (Dizajn sa slike)
+        if pdf.get_y() > 200: pdf.add_page()
+        else: pdf.ln(10)
         
         pdf.set_fill_color(44, 52, 70)
         pdf.set_text_color(255)
         if has_bold: pdf.set_font("DejaVu", "B", 11)
-        pdf.cell(0, 10, "ZBIRNA REKAPITULACIJA", border=1, ln=True, align="C", fill=True)
+        pdf.cell(140, 10, "ZBIRNA REKAPITULACIJA", border=1, align="C", fill=True)
+        pdf.cell(50, 10, "", border=1, ln=True, fill=True) # Desni deo zaglavlja sa slike
         
         pdf.set_text_color(0)
         pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
@@ -193,7 +189,6 @@ if not df.empty:
             naziv = str(r['tip'])
             kolicina = r['kol']
             jedinica = r['jed']
-            
             if "Regal" in naziv: ukupno_regali += kolicina
             if any(oznaka in naziv for oznaka in kablovske_oznake): ukupno_kablovi += kolicina
 
@@ -202,7 +197,7 @@ if not df.empty:
             pdf.cell(50, 8, f"{kolicina:.2f} ", border=1, align="R", ln=True)
             pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
 
-        # TOTALI
+        # TOTALI SA SLIKE
         pdf.set_fill_color(240, 244, 248)
         if has_bold: pdf.set_font("DejaVu", "B", 10)
         pdf.cell(140, 9, " SVI REGALI ZAJEDNO (m)", border=1, fill=True)
@@ -214,18 +209,25 @@ if not df.empty:
         pdf.cell(50, 10, f"{ukupno_kablovi:.2f} m ", border=1, align="R", ln=True, fill=True)
 
         pdf_output = pdf.output()
-        if pdf_output:
-            st.download_button(label="📥 PREUZMI PDF", data=bytes(pdf_output), file_name="Izvestaj.pdf", mime="application/pdf")
+        st.download_button(label="📥 PREUZMI PDF", data=bytes(pdf_output), file_name="Izvestaj.pdf", mime="application/pdf")
 
 # ==========================================
-# 6. SIDEBAR
+# 6. SIDEBAR (Vraćena administracija)
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
+
 st.sidebar.markdown("---")
-up_file = st.sidebar.file_uploader("Restore baze", type="db")
-if up_file and st.sidebar.button("POVRATI PODATKE"):
+st.sidebar.subheader("🔄 Restore")
+up_file = st.sidebar.file_uploader("Vrati bazu iz fajla", type="db")
+if up_file and st.sidebar.button("POVRATI PODATKE", use_container_width=True):
     with open(DB_NAME, "wb") as f: f.write(up_file.getbuffer())
     st.rerun()
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
+    if st.sidebar.checkbox("Potvrđujem brisanje"):
+        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close()
+        st.rerun()
