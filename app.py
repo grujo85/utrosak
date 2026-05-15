@@ -10,7 +10,7 @@ from fpdf import FPDF
 # ==========================================
 st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
-FONT_PATH = "DejaVuSans.ttf" # Proveri da li je ovaj fajl na GitHub-u!
+FONT_FILE = "DejaVuSans.ttf" 
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -22,17 +22,6 @@ def init_db():
     conn.close()
 
 init_db()
-
-# Funkcija za "čišćenje" teksta ako nema fonta (da ne puca PDF)
-def clean_text(text):
-    if not os.path.exists(FONT_PATH):
-        replacements = {
-            "š": "s", "Š": "S", "ć": "c", "Ć": "C", "č": "c", "Č": "C",
-            "ž": "z", "Ž": "Z", "đ": "dj", "Đ": "Dj"
-        }
-        for char, replacement in replacements.items():
-            text = text.replace(char, replacement)
-    return str(text)
 
 MATERIJAL_STRUKTURA = {
     "NOSAČI I REGALI": ["Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600"],
@@ -49,113 +38,126 @@ MATERIJAL_STRUKTURA = {
 }
 
 # ==========================================
-# 2. PDF KLASA
+# 2. POMOĆNA FUNKCIJA ZA SLOVA
+# ==========================================
+def f(text):
+    """Sprečava pucanje PDF-a ako font fali zameni slova š,ć,č,ž"""
+    if os.path.exists(FONT_FILE):
+        return str(text)
+    trans = {"š":"s","Š":"S","ć":"c","Ć":"C","č":"c","Č":"C","ž":"z","Ž":"Z","đ":"dj","Đ":"Dj"}
+    for k, v in trans.items():
+        text = str(text).replace(k, v)
+    return text
+
+# ==========================================
+# 3. PDF KLASA I GENERACIJA
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
         self.set_auto_page_break(auto=True, margin=15)
-        if os.path.exists(FONT_PATH):
-            self.add_font("CustomFont", "", FONT_PATH)
-            self.set_font("CustomFont", "", 12)
+        if os.path.exists(FONT_FILE):
+            self.add_font("D", "", FONT_FILE, uni=True)
+            self.set_font("D", "", 14)
         else:
-            self.set_font("Helvetica", "B", 12)
+            self.set_font("Helvetica", "B", 14)
         
-        if os.path.exists("elmar.webp"):
-            self.image("elmar.webp", 10, 8, 30)
-        
+        if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 33)
         self.set_text_color(49, 130, 206)
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
-        self.ln(5)
+        self.set_text_color(100)
+        self.set_font("Helvetica", "", 9)
+        self.cell(0, 5, f"Izvestaj - {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
+        self.ln(10)
 
-# ==========================================
-# 3. PDF GENERACIJA
-# ==========================================
-def generate_pdf_bytes(df_input):
+def generate_pdf(df):
     pdf = ElektroPDF()
-    if os.path.exists(FONT_PATH):
-        pdf.add_font("CustomFont", "", FONT_PATH)
-        pdf.set_font("CustomFont", "", 10)
+    if os.path.exists(FONT_FILE):
+        pdf.add_font("D", "", FONT_FILE, uni=True)
+        pdf.set_font("D", "", 10)
     else:
         pdf.set_font("Helvetica", "", 10)
     
     pdf.add_page()
     
-    # Naslov tabele
-    pdf.set_fill_color(44, 52, 70)
-    pdf.set_text_color(255)
+    # Glavna tabela
+    pdf.set_fill_color(44, 52, 70); pdf.set_text_color(255)
     w = [25, 35, 55, 45, 30]
     headers = ["DATUM", "ORMAN", "STAVKA", "OPIS", "KOL."]
-    for col_w, h in zip(w, headers):
-        pdf.cell(col_w, 10, h, 1, 0, "C", True)
+    for col_w, h in zip(w, headers): pdf.cell(col_w, 10, h, 1, 0, "C", True)
     pdf.ln()
 
-    # Podaci
     pdf.set_text_color(0)
-    for i, r in df_input.iterrows():
-        pdf.cell(25, 8, clean_text(r['datum']), 1, 0, "C")
-        pdf.cell(35, 8, clean_text(r['orman']), 1, 0, "C")
-        pdf.cell(55, 8, clean_text(r['tip']), 1, 0, "L")
-        pdf.cell(45, 8, clean_text(r['opis'])[:20], 1, 0, "L")
+    for _, r in df.iterrows():
+        pdf.cell(25, 8, f(r['datum']), 1, 0, "C")
+        pdf.cell(35, 8, f(r['orman']), 1, 0, "C")
+        pdf.cell(55, 8, f(r['tip']), 1, 0, "L")
+        pdf.cell(45, 8, f(r['opis'])[:22], 1, 0, "L")
         pdf.cell(30, 8, f"{r['kol']} {r['jed']}", 1, 1, "R")
 
-    # Rekapitulacija
+    # REKAPITULACIJA PO GRUPAMA (VRAĆENO)
     pdf.ln(10)
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(190, 10, clean_text("ZBIRNA REKAPITULACIJA"), 1, 1, "C", True)
+    pdf.set_fill_color(44, 52, 70); pdf.set_text_color(255)
+    pdf.cell(190, 10, f("REKAPITULACIJA PO GRUPAMA"), 0, 1, "C", True)
 
-    rekap = df_input.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-    ukupno_kablovi = 0
-    ukupno_regali = 0
+    rekap_full = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
+    ukupno_kablovi, ukupno_regali = 0, 0
+    w_naziv, w_kol = 140, 40
 
-    for _, row in rekap.iterrows():
-        tip_upper = str(row['tip']).upper()
-        is_kabel = any(x in tip_upper for x in ["PP-Y", "N2XH", "NHXH", "PP00", "SKS", "H07", "LIYCY", "UTP", "FTP"])
-        is_regal = "REGAL" in tip_upper
-        
-        if is_kabel: ukupno_kablovi += row['kol']
-        if is_regal: ukupno_regali += row['kol']
+    for grupa, stavke in MATERIJAL_STRUKTURA.items():
+        pod_rekap = rekap_full[rekap_full['tip'].isin(stavke)]
+        if not pod_rekap.empty:
+            if pdf.get_y() > 250: pdf.add_page()
+            pdf.ln(2)
+            pdf.set_fill_color(230, 235, 245); pdf.set_text_color(49, 130, 206)
+            pdf.cell(180, 7, f" GRUPA: {f(grupa)}", 0, 1, "L", True)
+            
+            pdf.set_text_color(0)
+            for _, row in pod_rekap.iterrows():
+                # Racunanje totala
+                t_up = str(row['tip']).upper()
+                if any(x in t_up for x in ["PP-Y", "N2XH", "NHXH", "PP00", "SKS", "H07", "LIYCY", "P/F"]):
+                    ukupno_kablovi += row['kol']
+                if "REGAL" in t_up: ukupno_regali += row['kol']
 
-        pdf.cell(140, 8, f" {clean_text(row['tip'])} ({row['jed']})", 1, 0, "L")
-        pdf.cell(50, 8, f"{row['kol']:.2f} ", 1, 1, "R")
+                # ISPIS: TEKST LEVO, REZULTAT DESNO
+                pdf.cell(w_naziv, 7, f" {f(row['tip'])} ({row['jed']})", 0, 0, "L")
+                pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-    pdf.set_fill_color(240, 245, 255)
-    pdf.cell(140, 9, clean_text(" SVI REGALI ZAJEDNO (m)"), 1, 0, "L", True)
-    pdf.cell(50, 9, f"{ukupno_regali:.2f} m ", 1, 1, "R", True)
-    
-    pdf.set_fill_color(220, 235, 255)
-    pdf.cell(140, 9, clean_text(" UKUPNO SVIH KABLOVA (m)"), 1, 0, "L", True)
-    pdf.cell(50, 9, f"{ukupno_kablovi:.2f} m ", 1, 1, "R", True)
+    # FINALE TOTALI
+    pdf.ln(5)
+    pdf.set_fill_color(240, 244, 248); pdf.cell(w_naziv, 9, f(" SVI REGALI ZAJEDNO (m)"), 0, 0, "L", True)
+    pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m ", 0, 1, "R", True)
+    pdf.set_fill_color(225, 235, 255); pdf.cell(w_naziv, 10, f(" UKUPNO SVIH KABLOVA (m)"), 0, 0, "L", True)
+    pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return bytes(pdf.output())
+    return pdf.output(dest='S').encode('latin-1', errors='replace')
 
 # ==========================================
-# 4. GLAVNA APLIKACIJA
+# 4. STREAMLIT APLIKACIJA
 # ==========================================
 st.title("⚡ ELEKTRO-LOG BUSINESS")
 
-with st.form("unos_forme", clear_on_submit=True):
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        u_datum = st.date_input("Datum", datetime.now()).strftime("%d.%m.%Y")
-        u_orman = st.text_input("RO / Orman").upper().strip()
-    with col2:
+with st.form("unos", clear_on_submit=True):
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        u_dat = st.date_input("Datum", datetime.now()).strftime("%d.%m.%Y")
+        u_orm = st.text_input("RO / Orman").upper().strip()
+    with c2:
         u_kat = st.selectbox("Grupa", list(MATERIJAL_STRUKTURA.keys()))
         u_tip = st.selectbox("Materijal", MATERIJAL_STRUKTURA[u_kat])
-    with col3:
+    with c3:
         u_kol = st.number_input("Količina", min_value=0.0, step=0.1)
         u_jed = st.selectbox("Jedinica", ["m", "kom", "h"])
-    with col4:
-        u_opis = st.text_input("Opis/Krug")
-        u_napomena = st.text_input("Napomena")
-        submit = st.form_submit_button("SAČUVAJ UNOS", use_container_width=True)
+    with c4:
+        u_opi = st.text_input("Opis/Krug")
+        u_nap = st.text_input("Napomena")
+        submit = st.form_submit_button("SAČUVAJ", use_container_width=True)
 
-if submit and u_orman:
+if submit and u_orm:
     conn = sqlite3.connect(DB_NAME)
     conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)",
-                 (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
-    conn.commit()
-    conn.close()
-    st.rerun()
+                 (u_dat, u_orm, u_opi, u_tip, u_kol, u_jed, u_nap))
+    conn.commit(); conn.close(); st.rerun()
 
 st.divider()
 
@@ -165,44 +167,28 @@ conn.close()
 
 if not df.empty:
     st.subheader("📋 Lista unosa")
-    edited_df = st.data_editor(df, use_container_width=True, hide_index=True, height=350)
+    ed_df = st.data_editor(df, use_container_width=True, hide_index=True, height=400)
     
-    if not edited_df.equals(df):
+    if not ed_df.equals(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
-        edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit()
-        conn.close()
-        st.rerun()
+        ed_df.to_sql('radovi', conn, if_exists='append', index=False)
+        conn.commit(); conn.close(); st.rerun()
 
-    pdf_data = generate_pdf_bytes(edited_df)
-    st.download_button(
-        label="📥 PREUZMI PDF IZVEŠTAJ",
-        data=pdf_data,
-        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+    try:
+        pdf_bytes = generate_pdf(ed_df)
+        st.download_button("📥 PREUZMI PDF IZVEŠTAJ", pdf_bytes, 
+                           f"Izvestaj_{datetime.now().strftime('%d_%m')}.pdf", "application/pdf", use_container_width=True)
+    except Exception as e:
+        st.error(f"Greska: {e}")
 
 # SIDEBAR
-st.sidebar.title("⚙️ Administracija")
+st.sidebar.title("⚙️ Admin")
 if os.path.exists(DB_NAME):
-    with open(DB_NAME, "rb") as f:
-        st.sidebar.download_button("💾 Backup Baze", f, "baza.db", use_container_width=True)
+    with open(DB_NAME, "rb") as f_db:
+        st.sidebar.download_button("💾 Backup", f_db, "baza.db", use_container_width=True)
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔄 Restore Podataka")
-up_file = st.sidebar.file_uploader("Ubaci backup .db fajl", type="db")
-if up_file and st.sidebar.button("POVRATI PODATKE"):
-    with open(DB_NAME, "wb") as f:
-        f.write(up_file.getbuffer())
+up = st.sidebar.file_uploader("Restore", type="db")
+if up and st.sidebar.button("VRATI PODATKE"):
+    with open(DB_NAME, "wb") as f_db: f_db.write(up.getbuffer())
     st.rerun()
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ OBRIŠI SVE"):
-    if st.sidebar.checkbox("Potvrđujem brisanje"):
-        conn = sqlite3.connect(DB_NAME)
-        conn.execute("DELETE FROM radovi")
-        conn.commit()
-        conn.close()
-        st.rerun()
