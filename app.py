@@ -194,11 +194,16 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
+    # Generišemo bajtove (funkcija ih već vraća spremne)
     pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes),
-                       data=pdf_bytes,
-                       file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
-                       mime="application/pdf", use_container_width=True)
+    
+    st.download_button(
+        label="📥 PREUZMI PDF IZVEŠTAJ", 
+        data=pdf_bytes, 
+        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
+        mime="application/pdf", 
+        use_container_width=True
+    )
 
 # ==========================================
 # 5. SIDEBAR (BACKUP, RESTORE, DELETE)
