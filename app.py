@@ -55,9 +55,10 @@ class ElektroPDF(FPDF):
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 8)
-        self.set_text_color(150)
-        self.cell(0, 10, f"{self.page_no()}", align="C")
+        self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
+        self.set_text_color(120)
+        # ISPRAVLJENO: Nema broja strane, samo naziv firme centrirano
+        self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", align="C")
 
 # ==========================================
 # 4. POMOĆNE FUNKCIJE
@@ -82,7 +83,6 @@ def create_pdf_data(dataframe):
 
     pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
     for i, r in dataframe.iterrows():
-        # ISPRAVLJENO: Jasnije definisana boja pozadine reda
         if i % 2 == 0:
             pdf.set_fill_color(248, 248, 248)
         else:
@@ -94,7 +94,7 @@ def create_pdf_data(dataframe):
         pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
         pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-    # REKAPITULACIJA - KOJA NE ZAUZIMA CELU ŠIRINU
+    # REKAPITULACIJA
     if pdf.get_y() > 180: pdf.add_page()
     else: pdf.ln(10)
 
@@ -189,7 +189,7 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    # DOWNLOAD PDF - AUTOMATSKI SE OSVEŽAVA
+    # DOWNLOAD PDF - ODMAH SPREMAN
     pdf_bytes = create_pdf_data(edited_df)
     st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
                        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
