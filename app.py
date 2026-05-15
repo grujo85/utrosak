@@ -25,32 +25,21 @@ def init_db():
 init_db()
 
 # ==========================================
-# 2. KOMPLETNA LISTA MATERIJALA
+# 2. DETALJNA KATEGORIZACIJA (SVAKA GRUPA POSEBNO)
 # ==========================================
-TIPOVI_MATERIJALA = [
-    "Brezon M8", "Brezon M10", "C-šina 30x20", "C-šina 41x21", 
-    "Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600",
-    "LR Krivina", "LR T-komad", "Poklopac regala",
-    "PP-Y 2x1.5", "PP-Y 3x1.5", "PP-Y 3x2.5", "PP-Y 3x4", "PP-Y 4x1.5", "PP-Y 4x2.5", "PP-Y 4x4",
-    "PP-Y 5x1.5", "PP-Y 5x2.5", "PP-Y 5x4", "PP-Y 5x6", "PP-Y 5x10", "PP-Y 5x16",
-    "N2XH-J 3x1.5", "N2XH-J 3x2.5", "N2XH-J 3x4", "N2XH-J 5x1.5", "N2XH-J 5x2.5", "N2XH-J 5x4",
-    "N2XH-J 5x6", "N2XH-J 5x10", "N2XH-J 5x16", "N2XH-J 5x25", "N2XH-J 5x35", "N2XH-J 5x50",
-    "NHXH FE180 3x1.5", "NHXH FE180 3x2.5", "NHXH FE180 5x1.5", "NHXH FE180 5x2.5", "NHXH FE180 5x4", "NHXH FE180 5x6",
-    "PP00 3x1.5", "PP00 3x2.5", "PP00 4x1.5", "PP00 4x2.5", "PP00 4x4", "PP00 4x6", "PP00 4x10",
-    "PP00 4x16", "PP00 4x25", "PP00 4x35", "PP00 4x50", "PP00 4x70", "PP00 4x95", "PP00 4x120",
-    "PP00 4x150", "PP00 4x185", "PP00 4x240", "PP00 5x1.5", "PP00 5x2.5", "PP00 5x4", "PP00 5x6",
-    "PP00 5x10", "PP00 5x16", 
-    "PP00-A (Al) 4x16", "PP00-A 4x25", "PP00-A 4x35", "PP00-A 4x50", 
-    "PP00-A 4x70", "PP00-A 4x95", "PP00-A 4x120", "PP00-A 4x150", "PP00-A 4x240",
-    "H07RN-F (GG/J) 3x1.5", "H07RN-F 3x2.5", "H07RN-F 5x1.5", "H07RN-F 5x2.5", "H07RN-F 5x4", 
-    "H07RN-F 5x6", "H07RN-F 5x10", "H07RN-F 5x16", 
-    "LiYCY 2x0.75", "LiYCY 3x0.75", "LiYCY 4x0.75", "LiYCY 5x0.75", "LiYCY 7x0.75", "LiYCY 12x0.75",
-    "P/F (H07V-K) 0.75", "P/F 1.5", "P/F 2.5", "P/F 4", "P/F 6", "P/F 10", "P/F 16", "P/F 25", "P/F 35", "P/F 50",
-    "P (H07V-U) 1.5", "P 2.5", "P 4", "P 6", 
-    "SKS 2x16", "SKS 4x16", "SKS 4x25", "UTP Cat5e", "FTP Cat6", "SFTP Cat7", "Koaksijalni RG6", "Koaksijalni RG11",
-    "Alarmni 4x0.22", "Alarmni 6x0.22", "Alarmni 8x0.22", "JH(St)H 2x2x0.8", "JH(St)H 4x2x0.8",
-    "Solarni 4mm2", "Solarni 6mm2", "MONTAŽA", "DEMONTAŽA"
-]
+MATERIJAL_STRUKTURA = {
+    "NOSAČI I REGALI": ["Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600"],
+    "OPREMA ZA REGALE": ["LR Krivina", "LR T-komad", "Poklopac regala", "C-šina 30x20", "C-šina 41x21", "Brezon M8", "Brezon M10"],
+    "INSTALACIONI KABLOVI (PP-Y)": ["PP-Y 2x1.5", "PP-Y 3x1.5", "PP-Y 3x2.5", "PP-Y 3x4", "PP-Y 4x1.5", "PP-Y 4x2.5", "PP-Y 4x4", "PP-Y 5x1.5", "PP-Y 5x2.5", "PP-Y 5x4", "PP-Y 5x6", "PP-Y 5x10", "PP-Y 5x16"],
+    "BEZHALOGENI KABLOVI (N2XH)": ["N2XH-J 3x1.5", "N2XH-J 3x2.5", "N2XH-J 3x4", "N2XH-J 5x1.5", "N2XH-J 5x2.5", "N2XH-J 5x4", "N2XH-J 5x6", "N2XH-J 5x10", "N2XH-J 5x16", "N2XH-J 5x25", "N2XH-J 5x35", "N2XH-J 5x50"],
+    "VATROOTPORNI KABLOVI (NHXH)": ["NHXH FE180 3x1.5", "NHXH FE180 3x2.5", "NHXH FE180 5x1.5", "NHXH FE180 5x2.5", "NHXH FE180 5x4", "NHXH FE180 5x6"],
+    "NAPOJNI KABLOVI (PP00)": ["PP00 3x1.5", "PP00 3x2.5", "PP00 4x1.5", "PP00 4x2.5", "PP00 4x4", "PP00 4x6", "PP00 4x10", "PP00 4x16", "PP00 4x25", "PP00 4x35", "PP00 4x50", "PP00 4x70", "PP00 4x95", "PP00 4x120", "PP00 4x150", "PP00 4x185", "PP00 4x240", "PP00 5x1.5", "PP00 5x2.5", "PP00 5x4", "PP00 5x6", "PP00 5x10", "PP00 5x16"],
+    "ALUMINIJUMSKI KABLOVI (PP00-A / SKS)": ["PP00-A (Al) 4x16", "PP00-A 4x25", "PP00-A 4x35", "PP00-A 4x50", "PP00-A 4x70", "PP00-A 4x95", "PP00-A 4x120", "PP00-A 4x150", "PP00-A 4x240", "SKS 2x16", "SKS 4x16", "SKS 4x25"],
+    "GUMIRANI I FLEKSIBILNI": ["H07RN-F (GG/J) 3x1.5", "H07RN-F 3x2.5", "H07RN-F 5x1.5", "H07RN-F 5x2.5", "H07RN-F 5x4", "H07RN-F 5x6", "H07RN-F 5x10", "H07RN-F 5x16", "LiYCY 2x0.75", "LiYCY 3x0.75", "LiYCY 4x0.75", "LiYCY 5x0.75", "LiYCY 7x0.75", "LiYCY 12x0.75"],
+    "DOVODNE ŽICE (P / PF)": ["P/F (H07V-K) 0.75", "P/F 1.5", "P/F 2.5", "P/F 4", "P/F 6", "P/F 10", "P/F 16", "P/F 25", "P/F 35", "P/F 50", "P (H07V-U) 1.5", "P 2.5", "P 4", "P 6"],
+    "TELEKOMUNIKACIJE I DOJAVA": ["UTP Cat5e", "FTP Cat6", "SFTP Cat7", "Koaksijalni RG6", "Koaksijalni RG11", "Alarmni 4x0.22", "Alarmni 6x0.22", "Alarmni 8x0.22", "JH(St)H 2x2x0.8", "JH(St)H 4x2x0.8", "Solarni 4mm2", "Solarni 6mm2"],
+    "OSTALI RADOVI": ["MONTAŽA", "DEMONTAŽA"]
+}
 
 # ==========================================
 # 3. PDF KLASA
@@ -58,87 +47,73 @@ TIPOVI_MATERIJALA = [
 class ElektroPDF(FPDF):
     def header(self):
         self.set_auto_page_break(auto=True, margin=15)
-        has_font = os.path.exists(FONT_FILE)
-        if has_font:
+        if os.path.exists(FONT_FILE):
             self.add_font("DejaVu", "", FONT_FILE)
             self.set_font("DejaVu", "", 16)
-        else:
-            self.set_font("Helvetica", "B", 16)
-
-        if os.path.exists("elmar.webp"):
-            self.image("elmar.webp", 10, 8, 35)
-            
-        self.set_text_color(49, 130, 206)
-        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", ln=True, align="R")
+        else: self.set_font("Helvetica", "B", 16)
         
+        if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 33)
+        self.set_text_color(49, 130, 206)
+        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
         self.set_text_color(100)
-        self.set_font("DejaVu" if has_font else "Helvetica", "", 10)
-        self.cell(0, 5, f"Izveštaj o utrošku materijala - {datetime.now().strftime('%d.%m.%Y')}", ln=True, align="R")
-        self.ln(15)
+        self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
+        self.cell(0, 5, f"Datum izveštaja: {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
+        self.ln(10)
 
     def footer(self):
         self.set_y(-15)
-        has_font = os.path.exists(FONT_FILE)
-        self.set_font("DejaVu" if has_font else "Helvetica", "", 8)
+        self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 8)
         self.set_text_color(150)
         self.cell(0, 10, f"ELMAR Elektro-instalacije | Strana {self.page_no()}", align="C")
 
 # ==========================================
-# 4. FORMULAR ZA UNOS
+# 4. UNOS
 # ==========================================
 st.title("ELEKTRO-LOG BUSINESS ⚡")
 
 with st.form("glavna_forma", clear_on_submit=True):
-    st.subheader("➕ Novi unos")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         u_datum = st.date_input("Datum", datetime.now()).strftime("%d.%m.%Y")
         u_orman = st.text_input("RO / Orman").upper().strip()
     with c2:
-        u_opis = st.text_input("Krug / Opis")
-        u_tip = st.selectbox("Materijal", TIPOVI_MATERIJALA)
+        kat_izbor = st.selectbox("Izaberi kategoriju", list(MATERIJAL_STRUKTURA.keys()))
+        u_tip = st.selectbox("Materijal", MATERIJAL_STRUKTURA[kat_izbor])
     with c3:
         u_kol = st.number_input("Količina", min_value=0.0, step=0.1)
         u_jed = st.selectbox("Jedinica", ["m", "kom", "h"])
     with c4:
+        u_opis = st.text_input("Opis (Krug)")
         u_napomena = st.text_input("Napomena")
-        submit = st.form_submit_button("💾 SAČUVAJ", use_container_width=True)
+        submit = st.form_submit_button("💾 SAČUVAJ UNOS", use_container_width=True)
 
 if submit and u_orman:
     conn = sqlite3.connect(DB_NAME)
     conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)",
                  (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
-    conn.commit()
-    conn.close()
-    st.rerun()
+    conn.commit(); conn.close(); st.rerun()
 
 # ==========================================
-# 5. TABELA I PDF GENERACIJA
+# 5. PRIKAZ I PDF GENERACIJA
 # ==========================================
 st.divider()
 conn = sqlite3.connect(DB_NAME)
-# OVDE JE DODATO: ORDER BY orman ASC za azbučni red
 df = pd.read_sql_query("SELECT * FROM radovi ORDER BY orman ASC, id DESC", conn)
 conn.close()
 
 if not df.empty:
-    st.subheader("📋 Pregled unosa")
+    st.subheader("📋 Pregled unetih stavki")
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
     if len(edited_df) < len(df):
-        conn = sqlite3.connect(DB_NAME)
-        conn.execute("DELETE FROM radovi")
+        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit()
-        conn.close()
-        st.rerun()
+        conn.commit(); conn.close(); st.rerun()
 
-    st.write("---")
     if st.button("📄 GENERIŠI PDF IZVEŠTAJ", use_container_width=True):
         pdf = ElektroPDF()
         has_reg = os.path.exists(FONT_FILE)
         has_bold = os.path.exists(FONT_FILE_BOLD)
-
         if has_reg:
             pdf.add_font("DejaVu", "", FONT_FILE)
             if has_bold: pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
@@ -146,88 +121,72 @@ if not df.empty:
         
         pdf.add_page()
         
-        # GLAVNA TABELA RADOVA
-        pdf.set_fill_color(49, 130, 206)
-        pdf.set_text_color(255)
+        # TABELA RADOVA (Sve centrirano, bez linija)
+        pdf.set_fill_color(49, 130, 206); pdf.set_text_color(255)
         if has_bold: pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(25, 10, "DATUM", border=1, align="C", fill=True)
-        pdf.cell(30, 10, "ORMAN", border=1, align="C", fill=True)
-        pdf.cell(45, 10, "OPIS", border=1, align="C", fill=True)
-        pdf.cell(55, 10, "MATERIJAL", border=1, align="C", fill=True)
-        pdf.cell(35, 10, "KOLIČINA", border=1, align="C", fill=True)
-        pdf.ln()
+        pdf.cell(25, 10, "DATUM", 0, 0, "C", True)
+        pdf.cell(35, 10, "ORMAN", 0, 0, "C", True)
+        pdf.cell(50, 10, "MATERIJAL", 0, 0, "C", True)
+        pdf.cell(45, 10, "OPIS", 0, 0, "C", True)
+        pdf.cell(35, 10, "KOL.", 0, 1, "C", True)
 
-        pdf.set_text_color(0)
-        pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
-        for _, r in df.iterrows():
-            pdf.cell(25, 8, str(r['datum']), border=1, align="C")
-            pdf.cell(30, 8, str(r['orman']), border=1, align="C")
-            pdf.cell(45, 8, str(r['opis'])[:25], border=1, align="L")
-            pdf.cell(55, 8, str(r['tip']), border=1, align="L")
-            pdf.cell(35, 8, f"{r['kol']} {r['jed']}", border=1, align="C")
-            pdf.ln()
+        pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
+        for i, r in df.iterrows():
+            pdf.set_fill_color(248, 248, 248) if i % 2 == 0 else pdf.set_fill_color(255, 255, 255)
+            pdf.cell(25, 8, str(r['datum']), 0, 0, "C", True)
+            pdf.cell(35, 8, str(r['orman']), 0, 0, "C", True)
+            pdf.cell(50, 8, str(r['tip']), 0, 0, "C", True)
+            pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
+            pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-        # REKAPITULACIJA (Dizajn sa slike)
-        if pdf.get_y() > 200: pdf.add_page()
-        else: pdf.ln(10)
-        
-        pdf.set_fill_color(44, 52, 70)
-        pdf.set_text_color(255)
+        # REKAPITULACIJA PO SVAKOJ KATEGORIJI
+        pdf.ln(10)
+        pdf.set_fill_color(44, 52, 70); pdf.set_text_color(255)
         if has_bold: pdf.set_font("DejaVu", "B", 11)
-        pdf.cell(140, 10, "ZBIRNA REKAPITULACIJA", border=1, align="C", fill=True)
-        pdf.cell(50, 10, "", border=1, ln=True, fill=True) # Desni deo zaglavlja sa slike
-        
-        pdf.set_text_color(0)
-        pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
-        rekap = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-        
+        pdf.cell(190, 10, "DETALJNA REKAPITULACIJA PO GRUPAMA", 0, 1, "C", True)
+
         ukupno_regali = 0
         ukupno_kablovi = 0
-        kablovske_oznake = ["PP-Y", "N2XH", "NHXH", "PP00", "H07RN", "LiYCY", "SKS", "P/F", "P (H07V-U)"]
+        rekap_full = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
 
-        for _, r in rekap.iterrows():
-            naziv = str(r['tip'])
-            kolicina = r['kol']
-            jedinica = r['jed']
-            if "Regal" in naziv: ukupno_regali += kolicina
-            if any(oznaka in naziv for oznaka in kablovske_oznake): ukupno_kablovi += kolicina
+        for grupa, stavke in MATERIJAL_STRUKTURA.items():
+            pod_rekap = rekap_full[rekap_full['tip'].isin(stavke)]
+            if not pod_rekap.empty:
+                pdf.ln(2)
+                pdf.set_fill_color(230, 235, 240); pdf.set_text_color(49, 130, 206)
+                if has_bold: pdf.set_font("DejaVu", "B", 9)
+                pdf.cell(190, 7, f" GRUPA: {grupa}", 0, 1, "C", True)
+                
+                pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
+                for _, row in pod_rekap.iterrows():
+                    # Sabiranje za finale
+                    if "REGALI" in grupa: ukupno_regali += row['kol']
+                    if any(x in grupa for x in ["KABLOVI", "ŽICE", "GUMIRANI"]): ukupno_kablovi += row['kol']
+                    
+                    pdf.cell(140, 7, f"{row['tip']} ({row['jed']})", 0, 0, "C")
+                    pdf.cell(50, 7, f"{row['kol']:.2f}", 0, 1, "C")
 
-            pdf.cell(140, 8, f" {naziv} ({jedinica})", border=1, align="L")
-            if has_bold: pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(50, 8, f"{kolicina:.2f} ", border=1, align="R", ln=True)
-            pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
-
-        # TOTALI SA SLIKE
-        pdf.set_fill_color(240, 244, 248)
+        # TOTALI (Kraj izveštaja)
+        pdf.ln(8)
+        pdf.set_fill_color(240, 244, 248); pdf.set_text_color(0)
         if has_bold: pdf.set_font("DejaVu", "B", 10)
-        pdf.cell(140, 9, " SVI REGALI ZAJEDNO (m)", border=1, fill=True)
-        pdf.cell(50, 9, f"{ukupno_regali:.2f} m ", border=1, align="R", ln=True, fill=True)
-
-        pdf.set_fill_color(230, 242, 255)
-        pdf.set_text_color(49, 130, 206)
-        pdf.cell(140, 10, " UKUPNO SVIH KABLOVA (m)", border=1, fill=True)
-        pdf.cell(50, 10, f"{ukupno_kablovi:.2f} m ", border=1, align="R", ln=True, fill=True)
+        pdf.cell(140, 9, "SVI REGALI ZAJEDNO (m)", 0, 0, "C", True)
+        pdf.cell(50, 9, f"{ukupno_regali:.2f} m", 0, 1, "C", True)
+        
+        pdf.set_fill_color(230, 242, 255); pdf.set_text_color(49, 130, 206)
+        pdf.cell(140, 10, "UKUPNO SVIH KABLOVA, ŽICA I PROVODNIKA (m)", 0, 0, "C", True)
+        pdf.cell(50, 10, f"{ukupno_kablovi:.2f} m", 0, 1, "C", True)
 
         pdf_output = pdf.output()
-        st.download_button(label="📥 PREUZMI PDF", data=bytes(pdf_output), file_name="Izvestaj.pdf", mime="application/pdf")
+        st.download_button("📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_output), file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", mime="application/pdf")
 
 # ==========================================
-# 6. SIDEBAR (Vraćena administracija)
+# 6. ADMIN
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
 if os.path.exists(DB_NAME):
-    with open(DB_NAME, "rb") as f:
-        st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
-
+    with open(DB_NAME, "rb") as f: st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔄 Restore")
-up_file = st.sidebar.file_uploader("Vrati bazu iz fajla", type="db")
-if up_file and st.sidebar.button("POVRATI PODATKE", use_container_width=True):
-    with open(DB_NAME, "wb") as f: f.write(up_file.getbuffer())
-    st.rerun()
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
-    if st.sidebar.checkbox("Potvrđujem brisanje"):
-        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close()
-        st.rerun()
+if st.sidebar.button("🗑️ OBRIŠI SVE PODATKE"):
+    if st.sidebar.checkbox("Potvrđujem trajno brisanje"):
+        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close(); st.rerun()
