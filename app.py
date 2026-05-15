@@ -3,15 +3,17 @@ import pandas as pd
 import sqlite3
 import os
 import base64
-import pdfkit
+from io import BytesIO
 from datetime import datetime
+from xhtml2pdf import pisa 
 
 # ==========================================
-# 1. KONFIGURACIJA I INICIJALIZACIJA
+# 1. KONFIGURACIJA I BAZA
 # ==========================================
 st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 
-# Funkcija za logo u aplikaciji i PDF-u
+DB_NAME = 'elektro_baza.db'
+
 def get_base64_image(path):
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -20,18 +22,12 @@ def get_base64_image(path):
 
 logo_base64 = get_base64_image("elmar.webp")
 
-# BAZA PODATAKA
 def init_db():
-    conn = sqlite3.connect('elektro_baza.db')
+    conn = sqlite3.connect(DB_NAME)
     conn.execute("""CREATE TABLE IF NOT EXISTS radovi 
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                  datum TEXT, 
-                  orman TEXT, 
-                  opis TEXT, 
-                  tip TEXT, 
-                  kol REAL, 
-                  jed TEXT, 
-                  napomena TEXT)""")
+                  datum TEXT, orman TEXT, opis TEXT, 
+                  tip TEXT, kol REAL, jed TEXT, napomena TEXT)""")
     conn.commit()
     conn.close()
 
@@ -66,7 +62,7 @@ TIPOVI_MATERIJALA = [
 ]
 
 # ==========================================
-# 3. INTERFEJS - ZAGLAVLJE I UNOS
+# 3. GLAVNI INTERFEJS
 # ==========================================
 col_l, col_r = st.columns([1, 4])
 with col_l:
@@ -74,16 +70,16 @@ with col_l:
         st.markdown(f'<img src="data:image/webp;base64,{logo_base64}" width="150">', unsafe_allow_html=True)
 with col_r:
     st.title("ELEKTRO-LOG BUSINESS v1.0 ⚡")
-    st.write(f"Vreme pristupa: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
 
-with st.form("unos_podataka", clear_on_submit=True):
-    st.subheader("➕ Unos nove stavke u dnevnik")
+# Forma za unos
+with st.form("glavna_forma", clear_on_submit=True):
+    st.subheader("📝 Novi unos")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
         u_datum = st.date_input("Datum", datetime.now()).strftime("%d.%m.%Y")
         u_orman = st.text_input("Oznaka (RO)").upper().strip()
     with c2:
-        u_opis = st.text_input("Strujni krug / Opis")
+        u_opis = st.text_input("Krug / Opis")
         u_tip = st.selectbox("Materijal", TIPOVI_MATERIJALA)
     with c3:
         u_kol = st.number_input("Količina", min_value=0.0, step=0.1)
@@ -91,138 +87,98 @@ with st.form("unos_podataka", clear_on_submit=True):
     with c4:
         u_napomena = st.text_input("Napomena")
         st.write("---")
-        btn_snimi = st.form_submit_button("💾 SNIMI U BAZU", use_container_width=True)
+        btn_snimi = st.form_submit_button("💾 SNIMI", use_container_width=True)
 
-if btn_snimi:
-    if u_orman and u_kol > 0:
-        conn = sqlite3.connect('elektro_baza.db')
-        conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)",
-                     (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
-        conn.commit()
-        conn.close()
-        st.success(f"Uspešno sačuvano: {u_orman} | {u_tip}")
-        st.rerun()
-    else:
-        st.error("Polja 'Oznaka' i 'Količina' moraju biti popunjena!")
+if btn_snimi and u_orman:
+    conn = sqlite3.connect(DB_NAME)
+    conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)",
+                 (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
+    conn.commit(); conn.close(); st.rerun()
 
 # ==========================================
-# 4. PRIKAZ TABELE I EDITOVANJE
+# 4. TABELA I PDF
 # ==========================================
 st.divider()
-conn = sqlite3.connect('elektro_baza.db')
+conn = sqlite3.connect(DB_NAME)
 df = pd.read_sql_query("SELECT * FROM radovi ORDER BY id DESC", conn)
 conn.close()
 
 if not df.empty:
-    st.subheader("📋 Pregled unetih radova")
+    st.subheader("📋 Tabela radova")
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
-    # Detekcija promena/brisanja
     if len(edited_df) < len(df):
-        conn = sqlite3.connect('elektro_baza.db')
+        conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit()
-        conn.close()
-        st.rerun()
+        conn.commit(); conn.close(); st.rerun()
 
-    # ==========================================
-    # 5. GENERISANJE PDF-A (PUN DIZAJN)
-    # ==========================================
-    st.write("---")
-    if st.button("📄 GENERIŠI FINALNI PDF IZVEŠTAJ", use_container_width=True):
-        
-        redovi_html = ""
-        for _, r in df.iterrows():
-            redovi_html += f"""
-            <tr>
-                <td>{r['datum']}</td>
-                <td style="font-weight: bold;">{r['orman']}</td>
-                <td>{r['opis']}</td>
-                <td><b>{r['tip']}</b></td>
-                <td>{r['kol']} {r['jed']}</td>
-                <td style="text-align: left;">{r['napomena']}</td>
-            </tr>
-            """
-
+    if st.button("📄 GENERIŠI PDF IZVEŠTAJ", use_container_width=True):
+        redovi_html = "".join([f"<tr><td>{r.datum}</td><td><b>{r.orman}</b></td><td>{r.opis}</td><td><b>{r.tip}</b></td><td>{r.kol} {r.jed}</td><td>{r.napomena}</td></tr>" for r in df.itertuples()])
         rekap = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-        rekap_rows = "".join([f"<tr><td>{r['tip']} ({r['jed']})</td><td>{r['kol']:.2f}</td></tr>" for _, r in rekap.iterrows()])
-        
+        rekap_rows = "".join([f"<tr><td>{r.tip} ({r.jed})</td><td>{r.kol:.2f}</td></tr>" for r in rekap.itertuples()])
         suma_regali = df[df['tip'].str.contains("Regal", na=False)]['kol'].sum()
         suma_kablova = df[df['jed'] == 'm']['kol'].sum()
 
-        html_final = f"""
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: 'Segoe UI', Tahoma, sans-serif; padding: 30px; color: #2d3748; }}
-                .header {{ display: flex; justify-content: space-between; border-bottom: 3px solid #3182ce; padding-bottom: 10px; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
-                th {{ background: #3182ce; color: white; padding: 10px; font-size: 11px; }}
-                td {{ border: 1px solid #e2e8f0; padding: 8px; text-align: center; font-size: 12px; }}
-                .rekap-tab {{ width: 400px; margin-left: auto; margin-top: 30px; border: 2px solid #2d3748; }}
-                .rekap-tab th {{ background: #2d3748; color: white; padding: 10px; }}
-                .group-row {{ background: #edf2f7; font-weight: bold; }}
-                .total-row {{ background: #ebf8ff; font-size: 16px; font-weight: bold; color: #2b6cb0; border-top: 2px solid #2b6cb0; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <div>
-                    <img src="data:image/webp;base64,{logo_base64}" width="120">
-                    <h1 style="margin-top:10px;">ELEKTRO-LOG BUSINESS</h1>
-                </div>
-                <div style="text-align: right;">
-                    <p>Datum izveštaja: {datetime.now().strftime('%d.%m.%Y')}</p>
-                </div>
-            </div>
-            <table>
-                <thead>
-                    <tr><th>DATUM</th><th>ORMAN</th><th>OPIS</th><th>TIP MATERIJALA</th><th>KOLIČINA</th><th>NAPOMENA</th></tr>
-                </thead>
-                <tbody>{redovi_html}</tbody>
-            </table>
-            <table class="rekap-tab">
-                <thead><tr><th colspan="2">ZBIRNA REKAPITULACIJA</th></tr></thead>
-                <tbody>
-                    {rekap_rows}
-                    <tr class="group-row"><td>SVI REGALI ZAJEDNO (m)</td><td>{suma_regali:.2f}</td></tr>
-                    <tr class="total-row"><td>UKUPNO SVIH KABLOVA (m)</td><td>{suma_kablova:.2f} m</td></tr>
-                </tbody>
-            </table>
-        </body>
-        </html>
-        """
+        html_sadrzaj = f"""
+        <html><head><style>
+            @page {{ size: a4; margin: 1cm; }}
+            body {{ font-family: Helvetica, sans-serif; font-size: 10pt; color: #333; }}
+            h1 {{ color: #3182ce; border-bottom: 2pt solid #3182ce; padding-bottom: 10px; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+            th {{ background-color: #3182ce; color: white; padding: 8px; }}
+            td {{ border: 0.5pt solid #ccc; padding: 6px; text-align: center; }}
+            .rekap-tab {{ width: 350px; margin-top: 30px; border: 1.5pt solid #000; }}
+            .total-row {{ background-color: #ebf8ff; font-weight: bold; }}
+        </style></head><body>
+            <h1>ELEKTRO-LOG BUSINESS</h1>
+            <p>Datum: {datetime.now().strftime('%d.%m.%Y')}</p>
+            <table><thead><tr><th>DATUM</th><th>ORMAN</th><th>OPIS</th><th>TIP</th><th>KOL.</th><th>NAPOMENA</th></tr></thead>
+            <tbody>{redovi_html}</tbody></table>
+            <table class="rekap-tab"><tr><th colspan="2">REKAPITULACIJA</th></tr>{rekap_rows}
+            <tr class="total-row"><td>UKUPNO REGALI (m)</td><td>{suma_regali:.2f}</td></tr>
+            <tr class="total-row"><td>UKUPNO KABLOVI (m)</td><td>{suma_kablova:.2f}</td></tr>
+            </table></body></html>"""
         
-        # Konverzija
-        options = {'enable-local-file-access': None, 'encoding': "UTF-8"}
-        pdf_bin = pdfkit.from_string(html_final, False, options=options)
-        
-        st.download_button(
-            label="📥 KLIKNI OVDE DA PREUZMEŠ PDF",
-            data=pdf_bin,
-            file_name=f"Specifikacija_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-            mime="application/pdf",
+        pdf_buffer = BytesIO()
+        pisa.CreatePDF(html_sadrzaj, dest=pdf_buffer)
+        st.download_button("📥 PREUZMI PDF", data=pdf_buffer.getvalue(), file_name=f"Izvestaj_{datetime.now().strftime('%d_%m')}.pdf", mime="application/pdf")
+
+# ==========================================
+# 5. SIDEBAR (BACKUP & RESTORE)
+# ==========================================
+st.sidebar.title("⚙️ Administracija")
+
+# BACKUP
+st.sidebar.subheader("💾 Backup podataka")
+if os.path.exists(DB_NAME):
+    with open(DB_NAME, "rb") as f:
+        st.sidebar.download_button(
+            label="Preuzmi bazu (Backup)",
+            data=f,
+            file_name=f"backup_elektro_{datetime.now().strftime('%d_%m_%Y')}.db",
+            mime="application/x-sqlite3",
             use_container_width=True
         )
 
-# ==========================================
-# 6. SIDEBAR - ADMINISTRACIJA
-# ==========================================
-st.sidebar.title("⚙️ Administracija")
-if st.sidebar.button("📥 Preuzmi bazu (Backup)"):
-    with open("elektro_baza.db", "rb") as f:
-        st.sidebar.download_button("Download DB", f, "elektro_baza.db")
-
+# RESTORE (Vraćanje podataka)
 st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ RESETUJ CELU BAZU", type="primary"):
-    if st.sidebar.checkbox("Potvrđujem brisanje svih unosa"):
-        conn = sqlite3.connect('elektro_baza.db')
-        conn.execute("DELETE FROM radovi")
-        conn.commit()
-        conn.close()
-        st.rerun()
+st.sidebar.subheader("🔄 Restore (Vraćanje)")
+uploaded_file = st.sidebar.file_uploader("Otpremi backup (.db) fajl", type="db")
 
-if df.empty:
-    st.info("Baza je prazna. Unesite podatke koristeći formu iznad.")
+if uploaded_file is not None:
+    if st.sidebar.button("POVRATI PODATKE IZ FAJLA", type="primary", use_container_width=True):
+        try:
+            with open(DB_NAME, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            st.sidebar.success("Podaci su uspešno vraćeni!")
+            st.rerun()
+        except Exception as e:
+            st.sidebar.error(f"Greška pri vraćanju: {e}")
+
+# BRISANJE
+st.sidebar.markdown("---")
+if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
+    if st.sidebar.checkbox("Potvrđujem brisanje"):
+        conn = sqlite3.connect(DB_NAME)
+        conn.execute("DELETE FROM radovi"); conn.commit(); conn.close(); st.rerun()
