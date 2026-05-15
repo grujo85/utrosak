@@ -10,6 +10,7 @@ from fpdf import FPDF
 # ==========================================
 st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
+FONT_FILE = "DejaVuSans.ttf"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -23,7 +24,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# 2. KOMPLETNA LISTA MATERIJALA (BEZ SKRAĆIVANJA)
+# 2. KOMPLETNA LISTA MATERIJALA
 # ==========================================
 TIPOVI_MATERIJALA = [
     "Brezon M8", "Brezon M10", "C-šina 30x20", "C-šina 41x21", 
@@ -51,49 +52,63 @@ TIPOVI_MATERIJALA = [
 ]
 
 # ==========================================
-# 3. PDF DIZAJN KLASA (fpdf2)
+# 3. PDF KLASA (Podržava srpska slova)
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
-        # Logo elmar.webp mora biti u istom folderu
+        # Registracija fonta unutar klase
+        if os.path.exists(FONT_FILE):
+            self.add_font("DejaVu", "", FONT_FILE)
+            self.set_font("DejaVu", "", 16)
+        else:
+            self.set_font("Helvetica", "B", 16)
+
+        # Logo
         if os.path.exists("elmar.webp"):
             self.image("elmar.webp", 10, 8, 35)
-        
-        self.set_font("helvetica", "B", 18)
-        self.set_text_color(49, 130, 206) # Plava boja
+            
+        self.set_text_color(49, 130, 206)
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", ln=True, align="R")
-        self.set_font("helvetica", "I", 10)
+        
+        # Podnaslov sa datumom
         self.set_text_color(100)
+        if os.path.exists(FONT_FILE):
+            self.set_font("DejaVu", "", 10)
+        else:
+            self.set_font("Helvetica", "I", 10)
         self.cell(0, 5, f"Izveštaj o utrošku materijala - {datetime.now().strftime('%d.%m.%Y')}", ln=True, align="R")
         self.ln(20)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("helvetica", "I", 8)
+        if os.path.exists(FONT_FILE):
+            self.set_font("DejaVu", "", 8)
+        else:
+            self.set_font("Helvetica", "I", 8)
         self.set_text_color(150)
         self.cell(0, 10, f"ELMAR Elektro-instalacije | Strana {self.page_no()}", align="C")
 
 # ==========================================
-# 4. GLAVNI INTERFEJS I UNOS PODATAKA
+# 4. FORMULAR ZA UNOS
 # ==========================================
 st.title("ELEKTRO-LOG BUSINESS ⚡")
 
 with st.form("glavna_forma", clear_on_submit=True):
-    st.subheader("➕ Unos novog utroška")
+    st.subheader("➕ Novi unos")
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        u_datum = st.date_input("Datum unosa", datetime.now()).strftime("%d.%m.%Y")
-        u_orman = st.text_input("RO / Orman (Oznaka)").upper().strip()
+        u_datum = st.date_input("Datum", datetime.now()).strftime("%d.%m.%Y")
+        u_orman = st.text_input("RO / Orman").upper().strip()
     with c2:
-        u_opis = st.text_input("Strujni krug / Opis")
-        u_tip = st.selectbox("Izaberi materijal", TIPOVI_MATERIJALA)
+        u_opis = st.text_input("Krug / Opis")
+        u_tip = st.selectbox("Materijal", TIPOVI_MATERIJALA)
     with c3:
         u_kol = st.number_input("Količina", min_value=0.0, step=0.1)
         u_jed = st.selectbox("Jedinica", ["m", "kom", "h"])
     with c4:
-        u_napomena = st.text_input("Napomena (opciono)")
+        u_napomena = st.text_input("Napomena")
         st.write("---")
-        submit = st.form_submit_button("💾 SAČUVAJ U BAZU", use_container_width=True)
+        submit = st.form_submit_button("💾 SAČUVAJ", use_container_width=True)
 
 if submit and u_orman:
     conn = sqlite3.connect(DB_NAME)
@@ -101,11 +116,10 @@ if submit and u_orman:
                  (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
     conn.commit()
     conn.close()
-    st.success("Stavka uspešno dodata!")
     st.rerun()
 
 # ==========================================
-# 5. PRIKAZ I UREĐIVANJE TABELE
+# 5. TABELA I PDF GENERACIJA
 # ==========================================
 st.divider()
 conn = sqlite3.connect(DB_NAME)
@@ -113,11 +127,10 @@ df = pd.read_sql_query("SELECT * FROM radovi ORDER BY id DESC", conn)
 conn.close()
 
 if not df.empty:
-    st.subheader("📋 Tabela svih unetih radova")
-    # Data editor omogućava direktno brisanje i menjanje
+    st.subheader("📋 Pregled unosa")
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
-    # Sinhronizacija sa bazom ako dođe do brisanja
+    # Detekcija brisanja redova
     if len(edited_df) < len(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
@@ -126,102 +139,75 @@ if not df.empty:
         conn.close()
         st.rerun()
 
-    # ==========================================
-    # 6. PDF GENERACIJA (fpdf2)
-    # ==========================================
     st.write("---")
-    if st.button("📄 GENERIŠI FINALNI PDF", use_container_width=True):
+    if st.button("📄 GENERIŠI PDF IZVEŠTAJ", use_container_width=True):
+        if not os.path.exists(FONT_FILE):
+            st.error(f"GREŠKA: Fajl {FONT_FILE} nije pronađen na GitHub-u! PDF ne može imati srpska slova.")
+        
         pdf = ElektroPDF()
+        if os.path.exists(FONT_FILE):
+            pdf.add_font("DejaVu", "", FONT_FILE)
+            pdf.set_font("DejaVu", "", 10)
+        
         pdf.add_page()
         
-        # Zaglavlje tabele u PDF-u
+        # Zaglavlje tabele
         pdf.set_fill_color(49, 130, 206)
         pdf.set_text_color(255)
-        pdf.set_font("helvetica", "B", 9)
-        
         pdf.cell(25, 10, "DATUM", border=1, align="C", fill=True)
         pdf.cell(30, 10, "ORMAN", border=1, align="C", fill=True)
-        pdf.cell(45, 10, "OPIS / KRUG", border=1, align="C", fill=True)
-        pdf.cell(50, 10, "MATERIJAL", border=1, align="C", fill=True)
-        pdf.cell(20, 10, "KOL.", border=1, align="C", fill=True)
-        pdf.cell(20, 10, "JED.", border=1, align="C", fill=True)
+        pdf.cell(45, 10, "OPIS", border=1, align="C", fill=True)
+        pdf.cell(55, 10, "MATERIJAL", border=1, align="C", fill=True)
+        pdf.cell(35, 10, "KOLIČINA", border=1, align="C", fill=True)
         pdf.ln()
 
-        # Podaci
+        # Podaci iz baze
         pdf.set_text_color(0)
-        pdf.set_font("helvetica", "", 8)
         for _, r in df.iterrows():
             pdf.cell(25, 8, str(r['datum']), border=1, align="C")
             pdf.cell(30, 8, str(r['orman']), border=1, align="C")
             pdf.cell(45, 8, str(r['opis'])[:25], border=1, align="L")
-            pdf.cell(50, 8, str(r['tip']), border=1, align="L")
-            pdf.cell(20, 8, str(r['kol']), border=1, align="C")
-            pdf.cell(20, 8, str(r['jed']), border=1, align="C")
+            pdf.cell(55, 8, str(r['tip']), border=1, align="L")
+            pdf.cell(35, 8, f"{r['kol']} {r['jed']}", border=1, align="C")
             pdf.ln()
 
-        # Rekapitulacija
+        # Rekapitulacija materijala
         pdf.ln(10)
-        pdf.set_font("helvetica", "B", 12)
+        pdf.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "B", 12)
         pdf.cell(0, 10, "ZBIRNA REKAPITULACIJA:", ln=True)
-        pdf.set_font("helvetica", "", 10)
         
+        pdf.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
         rekap = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
         for _, r in rekap.iterrows():
             pdf.cell(100, 7, f"- {r['tip']}:", border="B")
             pdf.cell(40, 7, f"{r['kol']:.2f} {r['jed']}", border="B", align="R", ln=True)
-        
-        suma_kablova = df[df['jed'] == 'm']['kol'].sum()
-        pdf.ln(5)
-        pdf.set_fill_color(235, 248, 255)
-        pdf.set_font("helvetica", "B", 11)
-        pdf.cell(140, 10, f"UKUPNO KABLOVA (m): {suma_kablova:.2f} m", border=1, fill=True, align="R")
 
         pdf_bytes = pdf.output()
-        st.download_button(
-            label="📥 PREUZMI PDF DOKUMENT",
-            data=pdf_bytes,
-            file_name=f"Specifikacija_{datetime.now().strftime('%d_%m')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+        st.download_button("📥 PREUZMI PDF", data=pdf_bytes, file_name="Izvestaj.pdf", mime="application/pdf")
 
 # ==========================================
-# 7. SIDEBAR (ADMIN, BACKUP I RESTORE)
+# 6. SIDEBAR (BACKUP & RESTORE)
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
 
 # Backup
-st.sidebar.subheader("💾 Sigurnosna kopija")
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
-        st.sidebar.download_button(
-            label="Download Backup (.db)",
-            data=f,
-            file_name=f"backup_elektro_{datetime.now().strftime('%d_%m')}.db",
-            mime="application/x-sqlite3",
-            use_container_width=True
-        )
+        st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 
 # Restore
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔄 Restore (Vraćanje)")
-uploaded_db = st.sidebar.file_uploader("Otpremi backup fajl", type="db")
-if uploaded_db is not None:
-    if st.sidebar.button("POVRATI PODATKE", type="primary", use_container_width=True):
+st.sidebar.subheader("🔄 Restore")
+up_file = st.sidebar.file_uploader("Vrati bazu iz fajla", type="db")
+if up_file:
+    if st.sidebar.button("POVRATI PODATKE", use_container_width=True):
         with open(DB_NAME, "wb") as f:
-            f.write(uploaded_db.getbuffer())
-        st.sidebar.success("Podaci uspešno vraćeni!")
+            f.write(up_file.getbuffer())
         st.rerun()
 
-# Brisanje svega
+# Brisanje
 st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ RESETUJ CELU BAZU", use_container_width=True):
-    if st.sidebar.checkbox("Potvrđujem brisanje svih unosa"):
-        conn = sqlite3.connect(DB_NAME)
-        conn.execute("DELETE FROM radovi")
-        conn.commit()
-        conn.close()
+if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
+    if st.sidebar.checkbox("Potvrđujem brisanje"):
+        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close()
         st.rerun()
-
-if df.empty:
-    st.info("Baza je prazna. Koristite formu iznad za unos prvih podataka.")
