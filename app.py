@@ -141,8 +141,7 @@ def create_pdf_data(dataframe):
         pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-        # ČISTI BAJTOVI PREKO IO MEMORIJE - ELIMINIŠE SVAKI PROLAZNI NONE TRENUTAK
-        bafer = io.BytesIO()
+        # ČISTI ZAVRŠETAK KOJI VRAĆA STABILNE BAJTOVE
         pdf_output = pdf.output(dest='S')
         if isinstance(pdf_output, str):
             return pdf_output.encode('latin-1')
@@ -187,10 +186,9 @@ conn.close()
 if not df.empty:
     st.subheader("📋 Pregled unosa")
     
-    # POPRAVKA: Dodat fiksni ključ "tabela_radova" da Streamlit ne brka stanja aplikacije
+    # REŠENJE ZA NONE: Dodat fiksni key="tabela_radova" i eliminisan trenutni st.rerun() koji pravi prazan ciklus
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic", key="tabela_radova")
     
-    # POPRAVKA: Sigurniji način provere i upisa izmena bez prekidanja izvršavanja koda
     if not edited_df.equals(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
