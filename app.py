@@ -52,7 +52,7 @@ class ElektroPDF(FPDF):
         
         if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
-        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
+        self.cell(0, 10, "SPECIFIKACIJA RADOVA", 0, 1, "R")
         self.set_text_color(100)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 9)
         self.cell(0, 5, f"Izveštaj - {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
@@ -62,7 +62,7 @@ class ElektroPDF(FPDF):
         self.set_y(-15)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
         self.set_text_color(120)
-        self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", align="C")
+        self.cell(0, 10, "ELMAR elektroinstalacije", align="C")
 
 # ==========================================
 # 3. PDF GENERACIJA
