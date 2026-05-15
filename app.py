@@ -148,7 +148,8 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return pdf.output()
+    # Dodata destinacija 'S' (izvezi kao string/bajtove) i enkoding
+return pdf.output(dest='S').encode('latin-1')
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
@@ -194,7 +195,8 @@ if not df.empty:
         conn.commit(); conn.close(); st.rerun()
 
     pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
+    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes),
+                       data=pdf_bytes,
                        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
                        mime="application/pdf", use_container_width=True)
 
