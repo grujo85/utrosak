@@ -187,9 +187,20 @@ if not df.empty:
             pdf.cell(100, 7, f"- {r['tip']}:", border="B")
             pdf.cell(40, 7, f"{r['kol']:.2f} {r['jed']}", border="B", align="R", ln=True)
 
-        pdf_bytes = pdf.output()
-        st.download_button("📥 PREUZMI PDF", data=pdf_bytes, file_name="Izvestaj.pdf", mime="application/pdf")
-
+        # Generisanje PDF-a kao bytearray/bytes
+        pdf_output = pdf.output()
+        
+        # Provera: ako je output None ili string (putanja), moramo ga pretvoriti u bajtove
+        # Kod fpdf2, .output() bez parametara obično vraća bytearray, što Streamlit prihvata
+        if pdf_output is None:
+            st.error("Greška pri generisanju PDF sadržaja.")
+        else:
+            st.download_button(
+                label="📥 PREUZMI PDF",
+                data=bytes(pdf_output), # Osiguravamo da su podaci u 'bytes' formatu
+                file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
+                mime="application/pdf"
+            )
 # ==========================================
 # 6. SIDEBAR
 # ==========================================
