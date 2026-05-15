@@ -82,4 +82,8 @@ def create_pdf_data(dataframe):
 
     pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
     for i, r in dataframe.iterrows():
-        pdf.set_fill_color(248, 248, 248) if i % 2 == 0 else pdf.set_fill_color(255,
+        # ISPRAVLJENO: Jasnije definisana boja pozadine reda
+        if i % 2 == 0:
+            pdf.set_fill_color(248, 248, 248)
+        else:
+            pdf.set_fill_color(255, 255, 2
