@@ -8,7 +8,7 @@ from fpdf import FPDF
 # ==========================================
 # 1. KONFIGURACIJA I BAZA PODATAKA
 # ==========================================
-st.set_page_config(page_title="SPECIFIKACIJA RADOVA", layout="wide")
+st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
 FONT_FILE = "DejaVuSans.ttf"
 FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
@@ -52,7 +52,7 @@ class ElektroPDF(FPDF):
         
         if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
-        self.cell(0, 10, "SPECIFIKACIJA RADOVA", 0, 1, "R")
+        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
         self.set_text_color(100)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 9)
         self.cell(0, 5, f"Izveštaj - {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
@@ -62,7 +62,7 @@ class ElektroPDF(FPDF):
         self.set_y(-15)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
         self.set_text_color(120)
-        self.cell(0, 10, "ELMAR elektroinstalacije", align="C")
+        self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", align="C")
 
 # ==========================================
 # 3. PDF GENERACIJA
@@ -105,7 +105,9 @@ def create_pdf_data(dataframe):
     rekap_full = dataframe.groupby(['tip', 'jed'])['kol'].sum().reset_index()
     ukupno_regali = 0
     ukupno_kablovi = 0
-    w_naziv, w_kol = 100, 40
+    
+    # Širina tabele rekapitulacije
+    w_naziv, w_kol = 120, 40  # Ukupno 160mm
     total_w = w_naziv + w_kol
     offset = (190 - total_w) / 2
 
@@ -119,28 +121,32 @@ def create_pdf_data(dataframe):
             pdf.set_x(10 + offset)
             pdf.set_fill_color(230, 235, 245); pdf.set_text_color(49, 130, 206)
             if has_bold: pdf.set_font("DejaVu", "B", 9)
-            pdf.cell(total_w, 7, f"GRUPA: {grupa}", 0, 1, "C", True)
+            pdf.cell(total_w, 7, f" GRUPA: {grupa}", 0, 1, "L", True)
             
             pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
             for _, row in pod_rekap.iterrows():
                 if "REGALI" in grupa or "NOSAČI" in grupa: ukupno_regali += row['kol']
                 if any(x in grupa for x in ["KABLOVI", "ŽICE", "GUMIRANI", "BEZHALOGENI", "VATROOTPORNI", "NAPOJNI"]): 
                     ukupno_kablovi += row['kol']
+                
                 pdf.set_x(10 + offset)
-                pdf.cell(w_naziv, 7, f"{row['tip']} ({row['jed']})", 0, 0, "C")
-                pdf.cell(w_kol, 7, f"{row['kol']:.2f}", 0, 1, "C")
+                # Naziv levo, Količina desno
+                pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
+                pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-    # Totali
+    # Totali na kraju rekapitulacije
     if pdf.get_y() > 250: pdf.add_page()
-    pdf.ln(5); pdf.set_x(10 + offset)
+    pdf.ln(5); 
+    pdf.set_x(10 + offset)
     pdf.set_fill_color(240, 244, 248); pdf.set_text_color(0)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
-    pdf.cell(w_naziv, 9, "SVI REGALI ZAJEDNO (m)", 0, 0, "C", True)
-    pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m", 0, 1, "C", True)
+    pdf.cell(w_naziv, 9, " SVI REGALI ZAJEDNO (m)", 0, 0, "L", True)
+    pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m ", 0, 1, "R", True)
+    
     pdf.set_x(10 + offset)
     pdf.set_fill_color(230, 242, 255); pdf.set_text_color(49, 130, 206)
-    pdf.cell(w_naziv, 10, "UKUPNO SVIH KABLOVA (m)", 0, 0, "C", True)
-    pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m", 0, 1, "C", True)
+    pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
+    pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
     return pdf.output()
 
@@ -197,14 +203,11 @@ if not df.empty:
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
 
-# BACKUP
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 
 st.sidebar.markdown("---")
-
-# RESTORE - OVDE JE!
 st.sidebar.subheader("🔄 Restore Podataka")
 up_file = st.sidebar.file_uploader("Ubaci backup.db fajl", type="db")
 if up_file is not None:
@@ -215,8 +218,6 @@ if up_file is not None:
         st.rerun()
 
 st.sidebar.markdown("---")
-
-# DELETE ALL
 if st.sidebar.button("🗑️ OBRIŠI SVE"):
     if st.sidebar.checkbox("Potvrđujem brisanje"):
         conn = sqlite3.connect(DB_NAME)
