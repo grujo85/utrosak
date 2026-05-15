@@ -24,7 +24,7 @@ def init_db():
 
 init_db()
 
-# Kompletan šifarnik materijala
+# Šifarnik materijala
 MATERIJAL_STRUKTURA = {
     "NOSAČI I REGALI": ["Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600"],
     "OPREMA ZA REGALE": ["LR Krivina", "LR T-komad", "Poklopac regala", "C-šina 30x20", "C-šina 41x21", "Brezon M8", "Brezon M10"],
@@ -40,7 +40,7 @@ MATERIJAL_STRUKTURA = {
 }
 
 # ==========================================
-# 2. PDF KLASA (ELMAR U FOOTERU)
+# 2. PDF KLASA
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
@@ -62,11 +62,10 @@ class ElektroPDF(FPDF):
         self.set_y(-15)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
         self.set_text_color(120)
-        # Samo naziv firme, bez broja strane
         self.cell(0, 10, "ELMAR ELEKTROINSTALACIJE", align="C")
 
 # ==========================================
-# 3. FUNKCIJA ZA PDF
+# 3. PDF GENERACIJA
 # ==========================================
 def create_pdf_data(dataframe):
     pdf = ElektroPDF()
@@ -78,7 +77,7 @@ def create_pdf_data(dataframe):
     
     pdf.add_page()
     
-    # GLAVNA TABELA (SVI UNOSI)
+    # Glavna tabela
     pdf.set_fill_color(49, 130, 206); pdf.set_text_color(255)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
     w_cols = [25, 35, 50, 45, 35]
@@ -88,16 +87,14 @@ def create_pdf_data(dataframe):
 
     pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
     for i, r in dataframe.iterrows():
-        if i % 2 == 0: pdf.set_fill_color(248, 248, 248)
-        else: pdf.set_fill_color(255, 255, 255)
-            
+        pdf.set_fill_color(248, 248, 248) if i % 2 == 0 else pdf.set_fill_color(255, 255, 255)
         pdf.cell(25, 8, str(r['datum']), 0, 0, "C", True)
         pdf.cell(35, 8, str(r['orman']), 0, 0, "C", True)
         pdf.cell(50, 8, str(r['tip']), 0, 0, "C", True)
         pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
         pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-    # REKAPITULACIJA (PAMETAN PRELAZ NA LIST)
+    # Rekapitulacija
     if pdf.get_y() > 180: pdf.add_page()
     else: pdf.ln(10)
 
@@ -108,7 +105,6 @@ def create_pdf_data(dataframe):
     rekap_full = dataframe.groupby(['tip', 'jed'])['kol'].sum().reset_index()
     ukupno_regali = 0
     ukupno_kablovi = 0
-
     w_naziv, w_kol = 100, 40
     total_w = w_naziv + w_kol
     offset = (190 - total_w) / 2
@@ -130,20 +126,17 @@ def create_pdf_data(dataframe):
                 if "REGALI" in grupa or "NOSAČI" in grupa: ukupno_regali += row['kol']
                 if any(x in grupa for x in ["KABLOVI", "ŽICE", "GUMIRANI", "BEZHALOGENI", "VATROOTPORNI", "NAPOJNI"]): 
                     ukupno_kablovi += row['kol']
-                
                 pdf.set_x(10 + offset)
                 pdf.cell(w_naziv, 7, f"{row['tip']} ({row['jed']})", 0, 0, "C")
                 pdf.cell(w_kol, 7, f"{row['kol']:.2f}", 0, 1, "C")
 
-    # TOTALI
+    # Totali
     if pdf.get_y() > 250: pdf.add_page()
-    pdf.ln(5)
-    pdf.set_x(10 + offset)
+    pdf.ln(5); pdf.set_x(10 + offset)
     pdf.set_fill_color(240, 244, 248); pdf.set_text_color(0)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
     pdf.cell(w_naziv, 9, "SVI REGALI ZAJEDNO (m)", 0, 0, "C", True)
     pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m", 0, 1, "C", True)
-    
     pdf.set_x(10 + offset)
     pdf.set_fill_color(230, 242, 255); pdf.set_text_color(49, 130, 206)
     pdf.cell(w_naziv, 10, "UKUPNO SVIH KABLOVA (m)", 0, 0, "C", True)
@@ -152,7 +145,7 @@ def create_pdf_data(dataframe):
     return pdf.output()
 
 # ==========================================
-# 4. STREAMLIT INTERFEJS
+# 4. STREAMLIT APLIKACIJA
 # ==========================================
 st.title("ELEKTRO-LOG BUSINESS ⚡")
 
@@ -192,30 +185,40 @@ if not df.empty:
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit()
-        conn.close()
-        st.rerun()
+        conn.commit(); conn.close(); st.rerun()
 
-    # DOWNLOAD DUGME JE ODMAH TU
     pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(
-        label="📥 PREUZMI PDF IZVEŠTAJ",
-        data=bytes(pdf_bytes), 
-        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
-        mime="application/pdf", 
-        use_container_width=True
-    )
+    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
+                       file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
+                       mime="application/pdf", use_container_width=True)
 
-# SIDEBAR - ADMINISTRACIJA
+# ==========================================
+# 5. SIDEBAR (BACKUP, RESTORE, DELETE)
+# ==========================================
 st.sidebar.title("⚙️ Administracija")
+
+# BACKUP
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 
+st.sidebar.markdown("---")
+
+# RESTORE - OVDE JE!
+st.sidebar.subheader("🔄 Restore Podataka")
+up_file = st.sidebar.file_uploader("Ubaci backup.db fajl", type="db")
+if up_file is not None:
+    if st.sidebar.button("POVRATI PODATKE"):
+        with open(DB_NAME, "wb") as f:
+            f.write(up_file.getbuffer())
+        st.sidebar.success("Podaci su uspesno vraceni!")
+        st.rerun()
+
+st.sidebar.markdown("---")
+
+# DELETE ALL
 if st.sidebar.button("🗑️ OBRIŠI SVE"):
     if st.sidebar.checkbox("Potvrđujem brisanje"):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
-        conn.commit()
-        conn.close()
-        st.rerun()
+        conn.commit(); conn.close(); st.rerun()
