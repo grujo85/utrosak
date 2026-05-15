@@ -8,7 +8,7 @@ from fpdf import FPDF
 # ==========================================
 # 1. KONFIGURACIJA I BAZA PODATAKA
 # ==========================================
-st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
+st.set_page_config(page_title="SPECIFIKACIJA RADOVA", layout="wide")
 DB_NAME = 'elektro_baza.db'
 FONT_FILE = "DejaVuSans.ttf"
 FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
@@ -52,7 +52,7 @@ class ElektroPDF(FPDF):
         
         if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
-        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
+        self.cell(0, 10, "SPECIFIKACIJA RADOVA", 0, 1, "R")
         self.set_text_color(100)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 9)
         self.cell(0, 5, f"Izveštaj - {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
@@ -153,7 +153,7 @@ def create_pdf_data(dataframe):
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
 # ==========================================
-st.title("ELEKTRO-LOG BUSINESS ⚡")
+st.title("SPECIFIKACIJA RADOVA ⚡")
 
 with st.form("glavna_forma", clear_on_submit=True):
     c1, c2, c3, c4 = st.columns(4)
