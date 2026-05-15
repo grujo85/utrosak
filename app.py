@@ -25,7 +25,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# 2. KOMPLETNA LISTA MATERIJALA (Sve tvoje stavke)
+# 2. KOMPLETNA LISTA MATERIJALA
 # ==========================================
 TIPOVI_MATERIJALA = [
     "Brezon M8", "Brezon M10", "C-šina 30x20", "C-šina 41x21", 
@@ -57,6 +57,9 @@ TIPOVI_MATERIJALA = [
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
+        # Auto prelazak na novu stranu
+        self.set_auto_page_break(auto=True, margin=15)
+        
         has_font = os.path.exists(FONT_FILE)
         if has_font:
             self.add_font("DejaVu", "", FONT_FILE)
@@ -73,7 +76,7 @@ class ElektroPDF(FPDF):
         self.set_text_color(100)
         self.set_font("DejaVu" if has_font else "Helvetica", "", 10)
         self.cell(0, 5, f"Izveštaj o utrošku materijala - {datetime.now().strftime('%d.%m.%Y')}", ln=True, align="R")
-        self.ln(20)
+        self.ln(15)
 
     def footer(self):
         self.set_y(-15)
@@ -134,14 +137,12 @@ if not df.empty:
     st.write("---")
     if st.button("📄 GENERIŠI PDF IZVEŠTAJ", use_container_width=True):
         pdf = ElektroPDF()
-        
         has_reg = os.path.exists(FONT_FILE)
         has_bold = os.path.exists(FONT_FILE_BOLD)
 
         if has_reg:
             pdf.add_font("DejaVu", "", FONT_FILE)
-            if has_bold:
-                pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
+            if has_bold: pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
             pdf.set_font("DejaVu", "", 10)
         
         pdf.add_page()
@@ -149,12 +150,7 @@ if not df.empty:
         # ZAGLAVLJE TABELE
         pdf.set_fill_color(49, 130, 206)
         pdf.set_text_color(255)
-        
-        # Postavi Bold ako postoji fajl, inače Helvetica Bold, inače običan DejaVu
         if has_bold: pdf.set_font("DejaVu", "B", 10)
-        elif not has_reg: pdf.set_font("Helvetica", "B", 10)
-        else: pdf.set_font("DejaVu", "", 10)
-
         pdf.cell(25, 10, "DATUM", border=1, align="C", fill=True)
         pdf.cell(30, 10, "ORMAN", border=1, align="C", fill=True)
         pdf.cell(45, 10, "OPIS", border=1, align="C", fill=True)
@@ -173,34 +169,54 @@ if not df.empty:
             pdf.cell(35, 8, f"{r['kol']} {r['jed']}", border=1, align="C")
             pdf.ln()
 
-        # REKAPITULACIJA
-        pdf.ln(10)
-        if has_bold: pdf.set_font("DejaVu", "B", 12)
-        elif not has_reg: pdf.set_font("Helvetica", "B", 12)
-        else: pdf.set_font("DejaVu", "", 12)
-
-        pdf.cell(0, 10, "ZBIRNA REKAPITULACIJA:", ln=True)
+        # --- ZBIRNA REKAPITULACIJA (Dizajn sa slike) ---
+        # Provera preostalog mesta: ako je manje od 50mm, pređi na novu stranu
+        if pdf.get_y() > 220:
+            pdf.add_page()
+        else:
+            pdf.ln(10)
         
+        pdf.set_fill_color(44, 52, 70)
+        pdf.set_text_color(255)
+        if has_bold: pdf.set_font("DejaVu", "B", 11)
+        pdf.cell(0, 10, "ZBIRNA REKAPITULACIJA", border=1, ln=True, align="C", fill=True)
+        
+        pdf.set_text_color(0)
         pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
         rekap = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-        for _, r in rekap.iterrows():
-            pdf.cell(100, 7, f"- {r['tip']}:", border="B")
-            pdf.cell(40, 7, f"{r['kol']:.2f} {r['jed']}", border="B", align="R", ln=True)
-
-        # Generisanje PDF-a kao bytearray/bytes
-        pdf_output = pdf.output()
         
-        # Provera: ako je output None ili string (putanja), moramo ga pretvoriti u bajtove
-        # Kod fpdf2, .output() bez parametara obično vraća bytearray, što Streamlit prihvata
-        if pdf_output is None:
-            st.error("Greška pri generisanju PDF sadržaja.")
-        else:
-            st.download_button(
-                label="📥 PREUZMI PDF",
-                data=bytes(pdf_output), # Osiguravamo da su podaci u 'bytes' formatu
-                file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-                mime="application/pdf"
-            )
+        ukupno_regali = 0
+        ukupno_kablovi = 0
+        kablovske_oznake = ["PP-Y", "N2XH", "NHXH", "PP00", "H07RN", "LiYCY", "SKS", "P/F", "P (H07V-U)"]
+
+        for _, r in rekap.iterrows():
+            naziv = str(r['tip'])
+            kolicina = r['kol']
+            jedinica = r['jed']
+            
+            if "Regal" in naziv: ukupno_regali += kolicina
+            if any(oznaka in naziv for oznaka in kablovske_oznake): ukupno_kablovi += kolicina
+
+            pdf.cell(140, 8, f" {naziv} ({jedinica})", border=1, align="L")
+            if has_bold: pdf.set_font("DejaVu", "B", 10)
+            pdf.cell(50, 8, f"{kolicina:.2f} ", border=1, align="R", ln=True)
+            pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
+
+        # TOTALI
+        pdf.set_fill_color(240, 244, 248)
+        if has_bold: pdf.set_font("DejaVu", "B", 10)
+        pdf.cell(140, 9, " SVI REGALI ZAJEDNO (m)", border=1, fill=True)
+        pdf.cell(50, 9, f"{ukupno_regali:.2f} m ", border=1, align="R", ln=True, fill=True)
+
+        pdf.set_fill_color(230, 242, 255)
+        pdf.set_text_color(49, 130, 206)
+        pdf.cell(140, 10, " UKUPNO SVIH KABLOVA (m)", border=1, fill=True)
+        pdf.cell(50, 10, f"{ukupno_kablovi:.2f} m ", border=1, align="R", ln=True, fill=True)
+
+        pdf_output = pdf.output()
+        if pdf_output:
+            st.download_button(label="📥 PREUZMI PDF", data=bytes(pdf_output), file_name="Izvestaj.pdf", mime="application/pdf")
+
 # ==========================================
 # 6. SIDEBAR
 # ==========================================
@@ -208,18 +224,8 @@ st.sidebar.title("⚙️ Administracija")
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
-
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔄 Restore")
-up_file = st.sidebar.file_uploader("Vrati bazu iz fajla", type="db")
-if up_file:
-    if st.sidebar.button("POVRATI PODATKE", use_container_width=True):
-        with open(DB_NAME, "wb") as f:
-            f.write(up_file.getbuffer())
-        st.rerun()
-
-st.sidebar.markdown("---")
-if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
-    if st.sidebar.checkbox("Potvrđujem brisanje"):
-        conn = sqlite3.connect(DB_NAME); conn.execute("DELETE FROM radovi"); conn.commit(); conn.close()
-        st.rerun()
+up_file = st.sidebar.file_uploader("Restore baze", type="db")
+if up_file and st.sidebar.button("POVRATI PODATKE"):
+    with open(DB_NAME, "wb") as f: f.write(up_file.getbuffer())
+    st.rerun()
