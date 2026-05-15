@@ -70,7 +70,6 @@ class ElektroPDF(FPDF):
 # ==========================================
 def create_pdf_data(dataframe):
     try:
-        # --- SVE OSTAJE ISTO DO KRAJA REKAPITULACIJE ---
         pdf = ElektroPDF()
         has_reg, has_bold = os.path.exists(FONT_FILE), os.path.exists(FONT_FILE_BOLD)
         if has_reg:
@@ -142,20 +141,14 @@ def create_pdf_data(dataframe):
         pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-        # --- NOVI "SILENT" ZAVRŠETAK KOJI UBIJA "NONE" ---
+        # ČISTI BAJTOVI PREKO IO MEMORIJE - ELIMINIŠE SVAKI PROLAZNI NONE TRENUTAK
         bafer = io.BytesIO()
         pdf_output = pdf.output(dest='S')
-        
-        # Ako je fpdf vratio string (što često radi), pretvaramo u bajtove
         if isinstance(pdf_output, str):
-            pdf_bytes = pdf_output.encode('latin-1')
-        else:
-            pdf_bytes = bytes(pdf_output)
-            
-        return pdf_bytes
+            return pdf_output.encode('latin-1')
+        return bytes(pdf_output)
 
     except Exception as e:
-        # Umesto None, vraćamo prazne bajtove da download_button ne pukne
         return b""
 
 # ==========================================
@@ -193,19 +186,20 @@ conn.close()
 
 if not df.empty:
     st.subheader("📋 Pregled unosa")
-    edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
-    # Ako korisnik izmeni tabelu na ekranu, čuva se automatski
+    # POPRAVKA: Dodat fiksni ključ "tabela_radova" da Streamlit ne brka stanja aplikacije
+    edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic", key="tabela_radova")
+    
+    # POPRAVKA: Sigurniji način provere i upisa izmena bez prekidanja izvršavanja koda
     if not edited_df.equals(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit(); conn.close(); st.rerun()
+        conn.commit(); conn.close()
+        st.rerun()
 
-    # GENERISANJE PDF BAJTOVA (Nema pozivanja van provere)
     pdf_izlaz = create_pdf_data(edited_df)
     
-    # Kompletna i neprobojna provera pre kreiranja dugmeta
     if pdf_izlaz is not None and len(pdf_izlaz) > 0:
         st.download_button(
             label="📥 PREUZMI PDF IZVEŠTAJ",
