@@ -49,9 +49,11 @@ class ElektroPDF(FPDF):
         if os.path.exists(FONT_FILE):
             self.add_font("DejaVu", "", FONT_FILE)
             self.set_font("DejaVu", "", 14)
-        else: self.set_font("Helvetica", "B", 14)
+        else: 
+            self.set_font("Helvetica", "B", 14)
         
-        if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
+        if os.path.exists("elmar.webp"): 
+            self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
         self.set_text_color(100)
@@ -74,20 +76,25 @@ def create_pdf_data(dataframe):
         has_reg, has_bold = os.path.exists(FONT_FILE), os.path.exists(FONT_FILE_BOLD)
         if has_reg:
             pdf.add_font("DejaVu", "", FONT_FILE)
-            if has_bold: pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
+            if has_bold: 
+                pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
             pdf.set_font("DejaVu", "", 10)
         
         pdf.add_page()
         
         # Glavna tabela
-        pdf.set_fill_color(49, 130, 206); pdf.set_text_color(255)
-        if has_bold: pdf.set_font("DejaVu", "B", 10)
+        pdf.set_fill_color(49, 130, 206)
+        pdf.set_text_color(255)
+        if has_bold: 
+            pdf.set_font("DejaVu", "B", 10)
         w_cols = [25, 35, 50, 45, 35]
         headers = ["DATUM", "ORMAN", "MATERIJAL", "OPIS", "KOL."]
-        for w, h in zip(w_cols, headers): pdf.cell(w, 10, h, 0, 0, "C", True)
+        for w, h in zip(w_cols, headers): 
+            pdf.cell(w, 10, h, 0, 0, "C", True)
         pdf.ln()
 
-        pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
+        pdf.set_text_color(0)
+        pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 9)
         for i, r in dataframe.iterrows():
             pdf.set_fill_color(248, 248, 248) if i % 2 == 0 else pdf.set_fill_color(255, 255, 255)
             pdf.cell(25, 8, str(r['datum']), 0, 0, "C", True)
@@ -96,11 +103,15 @@ def create_pdf_data(dataframe):
             pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
             pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-        if pdf.get_y() > 180: pdf.add_page()
-        else: pdf.ln(10)
+        if pdf.get_y() > 180: 
+            pdf.add_page()
+        else: 
+            pdf.ln(10)
 
-        pdf.set_fill_color(44, 52, 70); pdf.set_text_color(255)
-        if has_bold: pdf.set_font("DejaVu", "B", 11)
+        pdf.set_fill_color(44, 52, 70)
+        pdf.set_text_color(255)
+        if has_bold: 
+            pdf.set_font("DejaVu", "B", 11)
         pdf.cell(190, 10, "REKAPITULACIJA PO GRUPAMA", 0, 1, "C", True)
 
         rekap_full = dataframe.groupby(['tip', 'jed'])['kol'].sum().reset_index()
@@ -114,40 +125,50 @@ def create_pdf_data(dataframe):
             pod_rekap = rekap_full[rekap_full['tip'].isin(stavke)]
             if not pod_rekap.empty:
                 visina_grupe = 7 + (len(pod_rekap) * 7)
-                if pdf.get_y() + visina_grupe > 270: pdf.add_page()
+                if pdf.get_y() + visina_grupe > 270: 
+                    pdf.add_page()
                 pdf.ln(2)
                 pdf.set_x(10 + offset)
-                pdf.set_fill_color(230, 235, 245); pdf.set_text_color(49, 130, 206)
-                if has_bold: pdf.set_font("DejaVu", "B", 9)
+                pdf.set_fill_color(230, 235, 245)
+                pdf.set_text_color(49, 130, 206)
+                if has_bold: 
+                    pdf.set_font("DejaVu", "B", 9)
                 pdf.cell(total_w, 7, f" GRUPA: {grupa}", 0, 1, "L", True)
-                pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
+                pdf.set_text_color(0)
+                pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
                 for _, row in pod_rekap.iterrows():
-                    if "REGALI" in grupa or "NOSAČI" in grupa: ukupno_regali += row['kol']
+                    if "REGALI" in grupa or "NOSAČI" in grupa: 
+                        ukupno_regali += row['kol']
                     if any(x in grupa for x in ["KABLOVI", "ŽICE", "GUMIRANI", "BEZHALOGENI", "VATROOTPORNI", "NAPOJNI"]): 
                         ukupno_kablovi += row['kol']
                     pdf.set_x(10 + offset)
                     pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
                     pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-        if pdf.get_y() > 250: pdf.add_page()
+        if pdf.get_y() > 250: 
+            pdf.add_page()
         pdf.ln(5)
         pdf.set_x(10 + offset)
-        pdf.set_fill_color(240, 244, 248); pdf.set_text_color(0)
-        if has_bold: pdf.set_font("DejaVu", "B", 10)
+        pdf.set_fill_color(240, 244, 248)
+        pdf.set_text_color(0)
+        if has_bold: 
+            pdf.set_font("DejaVu", "B", 10)
         pdf.cell(w_naziv, 9, " SVI REGALI ZAJEDNO (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m ", 0, 1, "R", True)
         pdf.set_x(10 + offset)
-        pdf.set_fill_color(230, 242, 255); pdf.set_text_color(49, 130, 206)
+        pdf.set_fill_color(230, 242, 255)
+        pdf.set_text_color(49, 130, 206)
         pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-        # ČISTI ZAVRŠETAK KOJI VRAĆA STABILNE BAJTOVE
+        # ČISTI BAJTOVI PREKO MEMORIJE
         pdf_output = pdf.output(dest='S')
         if isinstance(pdf_output, str):
             return pdf_output.encode('latin-1')
         return bytes(pdf_output)
 
     except Exception as e:
+        st.write(f"Greška unutar PDF generatora: {e}")
         return b""
 
 # ==========================================
@@ -175,7 +196,9 @@ if submit and u_orman:
     conn = sqlite3.connect(DB_NAME)
     conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)",
                  (u_datum, u_orman, u_opis, u_tip, u_kol, u_jed, u_napomena))
-    conn.commit(); conn.close(); st.rerun()
+    conn.commit()
+    conn.close()
+    st.rerun()
 
 st.divider()
 
@@ -186,14 +209,14 @@ conn.close()
 if not df.empty:
     st.subheader("📋 Pregled unosa")
     
-    # REŠENJE ZA NONE: Dodat fiksni key="tabela_radova" i eliminisan trenutni st.rerun() koji pravi prazan ciklus
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic", key="tabela_radova")
     
     if not edited_df.equals(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit(); conn.close()
+        conn.commit()
+        conn.close()
         st.rerun()
 
     pdf_izlaz = create_pdf_data(edited_df)
@@ -233,4 +256,6 @@ if st.sidebar.button("🗑️ OBRIŠI SVE"):
     if st.sidebar.checkbox("Potvrđujem brisanje svih unosa"):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
-        conn.commit(); conn.close(); st.rerun()
+        conn.commit()
+        conn.close()
+        st.rerun()
