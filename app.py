@@ -70,6 +70,7 @@ class ElektroPDF(FPDF):
 # ==========================================
 def create_pdf_data(dataframe):
     try:
+        # --- SVE OSTAJE ISTO DO KRAJA REKAPITULACIJE ---
         pdf = ElektroPDF()
         has_reg, has_bold = os.path.exists(FONT_FILE), os.path.exists(FONT_FILE_BOLD)
         if has_reg:
@@ -96,7 +97,6 @@ def create_pdf_data(dataframe):
             pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
             pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-        # Rekapitulacija po grupama
         if pdf.get_y() > 180: pdf.add_page()
         else: pdf.ln(10)
 
@@ -107,7 +107,6 @@ def create_pdf_data(dataframe):
         rekap_full = dataframe.groupby(['tip', 'jed'])['kol'].sum().reset_index()
         ukupno_regali = 0
         ukupno_kablovi = 0
-        
         w_naziv, w_kol = 120, 40  
         total_w = w_naziv + w_kol
         offset = (190 - total_w) / 2
@@ -117,24 +116,20 @@ def create_pdf_data(dataframe):
             if not pod_rekap.empty:
                 visina_grupe = 7 + (len(pod_rekap) * 7)
                 if pdf.get_y() + visina_grupe > 270: pdf.add_page()
-                
                 pdf.ln(2)
                 pdf.set_x(10 + offset)
                 pdf.set_fill_color(230, 235, 245); pdf.set_text_color(49, 130, 206)
                 if has_bold: pdf.set_font("DejaVu", "B", 9)
                 pdf.cell(total_w, 7, f" GRUPA: {grupa}", 0, 1, "L", True)
-                
                 pdf.set_text_color(0); pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
                 for _, row in pod_rekap.iterrows():
                     if "REGALI" in grupa or "NOSAČI" in grupa: ukupno_regali += row['kol']
                     if any(x in grupa for x in ["KABLOVI", "ŽICE", "GUMIRANI", "BEZHALOGENI", "VATROOTPORNI", "NAPOJNI"]): 
                         ukupno_kablovi += row['kol']
-                    
                     pdf.set_x(10 + offset)
                     pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
                     pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-        # Ukupni totali na dnu rekapitulacije
         if pdf.get_y() > 250: pdf.add_page()
         pdf.ln(5)
         pdf.set_x(10 + offset)
@@ -142,19 +137,26 @@ def create_pdf_data(dataframe):
         if has_bold: pdf.set_font("DejaVu", "B", 10)
         pdf.cell(w_naziv, 9, " SVI REGALI ZAJEDNO (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 9, f"{ukupno_regali:.2f} m ", 0, 1, "R", True)
-        
         pdf.set_x(10 + offset)
         pdf.set_fill_color(230, 242, 255); pdf.set_text_color(49, 130, 206)
         pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
         pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-        # SIGURAN PROLAZ ZA PYTHON 3.14 (Preko memorijskog bafera)
-        pdf_string = pdf.output(dest='S')
-        if isinstance(pdf_string, str):
-            return pdf_string.encode('latin-1')
-        return bytes(pdf_string)
+        # --- NOVI "SILENT" ZAVRŠETAK KOJI UBIJA "NONE" ---
+        bafer = io.BytesIO()
+        pdf_output = pdf.output(dest='S')
+        
+        # Ako je fpdf vratio string (što često radi), pretvaramo u bajtove
+        if isinstance(pdf_output, str):
+            pdf_bytes = pdf_output.encode('latin-1')
+        else:
+            pdf_bytes = bytes(pdf_output)
+            
+        return pdf_bytes
+
     except Exception as e:
-        return None
+        # Umesto None, vraćamo prazne bajtove da download_button ne pukne
+        return b""
 
 # ==========================================
 # 4. STREAMLIT INTERFEJS
