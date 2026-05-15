@@ -11,6 +11,7 @@ from fpdf import FPDF
 st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
 FONT_FILE = "DejaVuSans.ttf"
+FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
 
 def init_db():
     conn = sqlite3.connect(DB_NAME)
@@ -24,7 +25,7 @@ def init_db():
 init_db()
 
 # ==========================================
-# 2. KOMPLETNA LISTA MATERIJALA
+# 2. KOMPLETNA LISTA MATERIJALA (Sve tvoje stavke)
 # ==========================================
 TIPOVI_MATERIJALA = [
     "Brezon M8", "Brezon M10", "C-šina 30x20", "C-šina 41x21", 
@@ -52,39 +53,32 @@ TIPOVI_MATERIJALA = [
 ]
 
 # ==========================================
-# 3. PDF KLASA (Podržava srpska slova)
+# 3. PDF KLASA
 # ==========================================
 class ElektroPDF(FPDF):
     def header(self):
-        # Registracija fonta unutar klase
-        if os.path.exists(FONT_FILE):
+        has_font = os.path.exists(FONT_FILE)
+        if has_font:
             self.add_font("DejaVu", "", FONT_FILE)
             self.set_font("DejaVu", "", 16)
         else:
             self.set_font("Helvetica", "B", 16)
 
-        # Logo
         if os.path.exists("elmar.webp"):
             self.image("elmar.webp", 10, 8, 35)
             
         self.set_text_color(49, 130, 206)
         self.cell(0, 10, "ELEKTRO-LOG BUSINESS", ln=True, align="R")
         
-        # Podnaslov sa datumom
         self.set_text_color(100)
-        if os.path.exists(FONT_FILE):
-            self.set_font("DejaVu", "", 10)
-        else:
-            self.set_font("Helvetica", "I", 10)
+        self.set_font("DejaVu" if has_font else "Helvetica", "", 10)
         self.cell(0, 5, f"Izveštaj o utrošku materijala - {datetime.now().strftime('%d.%m.%Y')}", ln=True, align="R")
         self.ln(20)
 
     def footer(self):
         self.set_y(-15)
-        if os.path.exists(FONT_FILE):
-            self.set_font("DejaVu", "", 8)
-        else:
-            self.set_font("Helvetica", "I", 8)
+        has_font = os.path.exists(FONT_FILE)
+        self.set_font("DejaVu" if has_font else "Helvetica", "", 8)
         self.set_text_color(150)
         self.cell(0, 10, f"ELMAR Elektro-instalacije | Strana {self.page_no()}", align="C")
 
@@ -107,7 +101,6 @@ with st.form("glavna_forma", clear_on_submit=True):
         u_jed = st.selectbox("Jedinica", ["m", "kom", "h"])
     with c4:
         u_napomena = st.text_input("Napomena")
-        st.write("---")
         submit = st.form_submit_button("💾 SAČUVAJ", use_container_width=True)
 
 if submit and u_orman:
@@ -130,7 +123,6 @@ if not df.empty:
     st.subheader("📋 Pregled unosa")
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
-    # Detekcija brisanja redova
     if len(edited_df) < len(df):
         conn = sqlite3.connect(DB_NAME)
         conn.execute("DELETE FROM radovi")
@@ -141,19 +133,28 @@ if not df.empty:
 
     st.write("---")
     if st.button("📄 GENERIŠI PDF IZVEŠTAJ", use_container_width=True):
-        if not os.path.exists(FONT_FILE):
-            st.error(f"GREŠKA: Fajl {FONT_FILE} nije pronađen na GitHub-u! PDF ne može imati srpska slova.")
-        
         pdf = ElektroPDF()
-        if os.path.exists(FONT_FILE):
+        
+        has_reg = os.path.exists(FONT_FILE)
+        has_bold = os.path.exists(FONT_FILE_BOLD)
+
+        if has_reg:
             pdf.add_font("DejaVu", "", FONT_FILE)
+            if has_bold:
+                pdf.add_font("DejaVu", "B", FONT_FILE_BOLD)
             pdf.set_font("DejaVu", "", 10)
         
         pdf.add_page()
         
-        # Zaglavlje tabele
+        # ZAGLAVLJE TABELE
         pdf.set_fill_color(49, 130, 206)
         pdf.set_text_color(255)
+        
+        # Postavi Bold ako postoji fajl, inače Helvetica Bold, inače običan DejaVu
+        if has_bold: pdf.set_font("DejaVu", "B", 10)
+        elif not has_reg: pdf.set_font("Helvetica", "B", 10)
+        else: pdf.set_font("DejaVu", "", 10)
+
         pdf.cell(25, 10, "DATUM", border=1, align="C", fill=True)
         pdf.cell(30, 10, "ORMAN", border=1, align="C", fill=True)
         pdf.cell(45, 10, "OPIS", border=1, align="C", fill=True)
@@ -161,8 +162,9 @@ if not df.empty:
         pdf.cell(35, 10, "KOLIČINA", border=1, align="C", fill=True)
         pdf.ln()
 
-        # Podaci iz baze
+        # PODACI
         pdf.set_text_color(0)
+        pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
         for _, r in df.iterrows():
             pdf.cell(25, 8, str(r['datum']), border=1, align="C")
             pdf.cell(30, 8, str(r['orman']), border=1, align="C")
@@ -171,12 +173,15 @@ if not df.empty:
             pdf.cell(35, 8, f"{r['kol']} {r['jed']}", border=1, align="C")
             pdf.ln()
 
-        # Rekapitulacija materijala
+        # REKAPITULACIJA
         pdf.ln(10)
-        pdf.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "B", 12)
+        if has_bold: pdf.set_font("DejaVu", "B", 12)
+        elif not has_reg: pdf.set_font("Helvetica", "B", 12)
+        else: pdf.set_font("DejaVu", "", 12)
+
         pdf.cell(0, 10, "ZBIRNA REKAPITULACIJA:", ln=True)
         
-        pdf.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 10)
+        pdf.set_font("DejaVu" if has_reg else "Helvetica", "", 10)
         rekap = df.groupby(['tip', 'jed'])['kol'].sum().reset_index()
         for _, r in rekap.iterrows():
             pdf.cell(100, 7, f"- {r['tip']}:", border="B")
@@ -186,16 +191,13 @@ if not df.empty:
         st.download_button("📥 PREUZMI PDF", data=pdf_bytes, file_name="Izvestaj.pdf", mime="application/pdf")
 
 # ==========================================
-# 6. SIDEBAR (BACKUP & RESTORE)
+# 6. SIDEBAR
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
-
-# Backup
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 
-# Restore
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔄 Restore")
 up_file = st.sidebar.file_uploader("Vrati bazu iz fajla", type="db")
@@ -205,7 +207,6 @@ if up_file:
             f.write(up_file.getbuffer())
         st.rerun()
 
-# Brisanje
 st.sidebar.markdown("---")
 if st.sidebar.button("🗑️ OBRIŠI SVE", use_container_width=True):
     if st.sidebar.checkbox("Potvrđujem brisanje"):
