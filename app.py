@@ -8,7 +8,7 @@ from fpdf import FPDF
 # ==========================================
 # 1. KONFIGURACIJA I BAZA PODATAKA
 # ==========================================
-st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
+st.set_page_config(page_title="SPECIFIKACIJA RADOVA", layout="wide")
 DB_NAME = 'elektro_baza.db'
 FONT_FILE = "DejaVuSans.ttf"
 FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
