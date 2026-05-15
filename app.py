@@ -148,14 +148,14 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    # === ZAMENI KRAJ FUNKCIJE OVIM ===
-    # Koristimo dest='S' da dobijemo string, ne ispisujemo na ekran
+    # === OVO IDE NA KRAJ FUNKCIJE create_pdf_data ===
     try:
-        pdf_out = pdf.output(dest='S')
-        if isinstance(pdf_out, str):
-            return pdf_out.encode('latin-1')
-        return pdf_out
-    except:
+        # Generiše PDF kao bajtove u memoriji, dest='S' sprečava ispis na ekran
+        pdf_output = pdf.output(dest='S')
+        if isinstance(pdf_output, str):
+            return pdf_output.encode('latin-1')
+        return pdf_output
+    except Exception as e:
         return None
 
 # ==========================================
@@ -196,21 +196,20 @@ if not df.empty:
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
     # Ako se podaci promene, sačuvaj ih
-    if not edited_df.equals(df):
-        conn = sqlite3.connect(DB_NAME)
-        conn.execute("DELETE FROM radovi")
-        edited_df.to_sql('radovi', conn, if_exists='append', index=False)
-        conn.commit(); conn.close(); st.rerun()
-
-    # --- OVDE JE REŠENJE ZA NONE ---
-    # Ne pravimo pdf_bytes varijablu gore, nego direktno u dugmetu ili u cache-u
-    st.download_button(
-        label="📥 PREUZMI PDF IZVEŠTAJ",
-        data=create_pdf_data(edited_df), # Pozivamo funkciju direktno ovde
-        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-        mime="application/pdf",
-        use_container_width=True
-    )
+    # === ZAMENI DEO KOD DUGMETA OVIM ===
+    if not edited_df.empty:
+        # Generišemo podatke neposredno pre provere
+        pdf_data = create_pdf_data(edited_df)
+        
+        # Ako podaci STVARNO postoje i nisu None
+        if pdf_data is not None:
+            st.download_button(
+                label="📥 PREUZMI PDF IZVEŠTAJ",
+                data=pdf_data,
+                file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
+                mime="application/pdf",
+                use_container_width=True
+            )
 
 # ==========================================
 # 5. SIDEBAR (BACKUP, RESTORE, DELETE)
