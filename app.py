@@ -77,7 +77,6 @@ def create_pdf_data(dataframe):
     
     pdf.add_page()
     
-    # Glavna tabela
     pdf.set_fill_color(49, 130, 206); pdf.set_text_color(255)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
     w_cols = [25, 35, 50, 45, 35]
@@ -94,7 +93,6 @@ def create_pdf_data(dataframe):
         pdf.cell(45, 8, str(r['opis'])[:22], 0, 0, "C", True)
         pdf.cell(35, 8, f"{r['kol']} {r['jed']}", 0, 1, "C", True)
 
-    # Rekapitulacija
     if pdf.get_y() > 180: pdf.add_page()
     else: pdf.ln(10)
 
@@ -106,8 +104,7 @@ def create_pdf_data(dataframe):
     ukupno_regali = 0
     ukupno_kablovi = 0
     
-    # Širina tabele rekapitulacije
-    w_naziv, w_kol = 120, 40  # Ukupno 160mm
+    w_naziv, w_kol = 120, 40 
     total_w = w_naziv + w_kol
     offset = (190 - total_w) / 2
 
@@ -130,11 +127,9 @@ def create_pdf_data(dataframe):
                     ukupno_kablovi += row['kol']
                 
                 pdf.set_x(10 + offset)
-                # Naziv levo, Količina desno
                 pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
                 pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-    # Totali na kraju rekapitulacije
     if pdf.get_y() > 250: pdf.add_page()
     pdf.ln(5); 
     pdf.set_x(10 + offset)
@@ -148,14 +143,13 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    # === OVO IDE NA KRAJ FUNKCIJE create_pdf_data ===
     try:
-        # Generiše PDF kao bajtove u memoriji, dest='S' sprečava ispis na ekran
+        # dest='S' vraća string/bajtove, ne ispisuje None na ekran
         pdf_output = pdf.output(dest='S')
         if isinstance(pdf_output, str):
             return pdf_output.encode('latin-1')
         return pdf_output
-    except Exception as e:
+    except Exception:
         return None
 
 # ==========================================
@@ -195,33 +189,34 @@ if not df.empty:
     st.subheader("📋 Pregled unosa")
     edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
     
-    # Ako se podaci promene, sačuvaj ih
-    # === ZAMENI DEO KOD DUGMETA OVIM ===
-    if not edited_df.empty:
-        # Generišemo podatke neposredno pre provere
-        pdf_data = create_pdf_data(edited_df)
-        
-        # Ako podaci STVARNO postoje i nisu None
-        if pdf_data is not None:
-            st.download_button(
-                label="📥 PREUZMI PDF IZVEŠTAJ",
-                data=pdf_data,
-                file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
+    # Detekcija promena u tabeli
+    if not edited_df.equals(df):
+        conn = sqlite3.connect(DB_NAME)
+        conn.execute("DELETE FROM radovi")
+        edited_df.to_sql('radovi', conn, if_exists='append', index=False)
+        conn.commit(); conn.close(); st.rerun()
+
+    # Generisanje podataka samo ako tabela nije prazna
+    pdf_data = create_pdf_data(edited_df)
+    
+    if pdf_data:
+        st.download_button(
+            label="📥 PREUZMI PDF IZVEŠTAJ",
+            data=pdf_data,
+            file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
 
 # ==========================================
-# 5. SIDEBAR (BACKUP, RESTORE, DELETE)
+# 5. SIDEBAR
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
-
 if os.path.exists(DB_NAME):
     with open(DB_NAME, "rb") as f:
         st.sidebar.download_button("💾 Backup Baze", f, "backup.db", use_container_width=True)
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔄 Restore Podataka")
 up_file = st.sidebar.file_uploader("Ubaci backup.db fajl", type="db")
 if up_file is not None:
     if st.sidebar.button("POVRATI PODATKE"):
