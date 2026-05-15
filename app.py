@@ -106,7 +106,6 @@ def create_pdf_data(dataframe):
     ukupno_regali = 0
     ukupno_kablovi = 0
     
-    # Širina tabele rekapitulacije
     w_naziv, w_kol = 120, 40  # Ukupno 160mm
     total_w = w_naziv + w_kol
     offset = (190 - total_w) / 2
@@ -130,11 +129,10 @@ def create_pdf_data(dataframe):
                     ukupno_kablovi += row['kol']
                 
                 pdf.set_x(10 + offset)
-                # Naziv levo, Količina desno
                 pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
                 pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-    # Totali na kraju rekapitulacije
+    # Totali
     if pdf.get_y() > 250: pdf.add_page()
     pdf.ln(5); 
     pdf.set_x(10 + offset)
@@ -148,7 +146,8 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return pdf.output()
+    # FIX ZA NONE: Koristimo dest='S' da dobijemo sirove bajtove direktno
+    return pdf.output(dest='S')
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
@@ -193,8 +192,9 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
+    # Poziv funkcije i pretvaranje u bajtove bez None greške
+    pdf_output = create_pdf_data(edited_df)
+    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=pdf_output, 
                        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
                        mime="application/pdf", use_container_width=True)
 
