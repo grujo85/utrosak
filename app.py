@@ -148,7 +148,7 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return pdf.output(dest='S')
+    return pdf.output()
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
@@ -193,13 +193,13 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    # Generisanje PDF-a
-    pdf_output = create_pdf_data(edited_df)
+    # 1. Generiši PDF
+    pdf_sadrzaj = create_pdf_data(edited_df)
     
-    # Provera da li imamo podatke da aplikacija ne bi pukla
-    if pdf_output:
-        # Pretvaramo string u bajtove (neophodno za Streamlit)
-        final_pdf = pdf_output.encode('latin-1')
+    # 2. PROVERA: Ako je None, prazno ili pogrešno, popravi
+    if pdf_sadrzaj is not None:
+        # Ako je tekst (str), enkoduj ga. Ako su već bajtovi (bytes), ostavi ih.
+        final_pdf = pdf_sadrzaj.encode('latin-1') if isinstance(pdf_sadrzaj, str) else pdf_sadrzaj
         
         st.download_button(
             label="📥 PREUZMI PDF IZVEŠTAJ",
@@ -209,7 +209,7 @@ if not df.empty:
             use_container_width=True
         )
     else:
-        st.error("Greška pri generisanju PDF-a. Podaci su prazni.")
+        st.warning("Trenutno nema podataka za generisanje PDF-a.")
 
 # ==========================================
 # 5. SIDEBAR (BACKUP, RESTORE, DELETE)
