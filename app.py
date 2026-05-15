@@ -8,7 +8,7 @@ from fpdf import FPDF
 # ==========================================
 # 1. KONFIGURACIJA I BAZA PODATAKA
 # ==========================================
-st.set_page_config(page_title="SPECIFIKACIJA RADOVA", layout="wide")
+st.set_page_config(page_title="ELEKTRO-LOG BUSINESS", layout="wide")
 DB_NAME = 'elektro_baza.db'
 FONT_FILE = "DejaVuSans.ttf"
 FONT_FILE_BOLD = "DejaVuSans-Bold.ttf"
@@ -52,7 +52,7 @@ class ElektroPDF(FPDF):
         
         if os.path.exists("elmar.webp"): self.image("elmar.webp", 10, 8, 30)
         self.set_text_color(49, 130, 206)
-        self.cell(0, 10, "SPECIFIKACIJA RADOVA", 0, 1, "R")
+        self.cell(0, 10, "ELEKTRO-LOG BUSINESS", 0, 1, "R")
         self.set_text_color(100)
         self.set_font("DejaVu" if os.path.exists(FONT_FILE) else "Helvetica", "", 9)
         self.cell(0, 5, f"Izveštaj - {datetime.now().strftime('%d.%m.%Y')}", 0, 1, "R")
@@ -105,9 +105,7 @@ def create_pdf_data(dataframe):
     rekap_full = dataframe.groupby(['tip', 'jed'])['kol'].sum().reset_index()
     ukupno_regali = 0
     ukupno_kablovi = 0
-    
-    # Širina tabele rekapitulacije
-    w_naziv, w_kol = 120, 40  # Ukupno 160mm
+    w_naziv, w_kol = 120, 40 
     total_w = w_naziv + w_kol
     offset = (190 - total_w) / 2
 
@@ -130,14 +128,12 @@ def create_pdf_data(dataframe):
                     ukupno_kablovi += row['kol']
                 
                 pdf.set_x(10 + offset)
-                # Naziv levo, Količina desno
                 pdf.cell(w_naziv, 7, f" {row['tip']} ({row['jed']})", 0, 0, "L")
                 pdf.cell(w_kol, 7, f"{row['kol']:.2f} ", 0, 1, "R")
 
-    # Totali na kraju rekapitulacije
+    # Totali
     if pdf.get_y() > 250: pdf.add_page()
-    pdf.ln(5); 
-    pdf.set_x(10 + offset)
+    pdf.ln(5); pdf.set_x(10 + offset)
     pdf.set_fill_color(240, 244, 248); pdf.set_text_color(0)
     if has_bold: pdf.set_font("DejaVu", "B", 10)
     pdf.cell(w_naziv, 9, " SVI REGALI ZAJEDNO (m)", 0, 0, "L", True)
@@ -148,12 +144,13 @@ def create_pdf_data(dataframe):
     pdf.cell(w_naziv, 10, " UKUPNO SVIH KABLOVA (m)", 0, 0, "L", True)
     pdf.cell(w_kol, 10, f"{ukupno_kablovi:.2f} m ", 0, 1, "R", True)
 
-    return pdf.output()
+    # ISPRAVKA: output(dest='S') vraća string (bytove) umesto da piše u konzolu/fajl
+    return pdf.output(dest='S')
 
 # ==========================================
 # 4. STREAMLIT APLIKACIJA
 # ==========================================
-st.title("SPECIFIKACIJA RADOVA ⚡")
+st.title("ELEKTRO-LOG BUSINESS ⚡")
 
 with st.form("glavna_forma", clear_on_submit=True):
     c1, c2, c3, c4 = st.columns(4)
@@ -185,7 +182,8 @@ conn.close()
 
 if not df.empty:
     st.subheader("📋 Pregled unosa")
-    edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic")
+    # ISPRAVKA: Dodat max_height da tabela ne bi bila predugačka i "gurala" PDF dugme dole
+    edited_df = st.data_editor(df, use_container_width=True, hide_index=True, num_rows="dynamic", max_height=400)
     
     if not edited_df.equals(df):
         conn = sqlite3.connect(DB_NAME)
@@ -193,13 +191,15 @@ if not df.empty:
         edited_df.to_sql('radovi', conn, if_exists='append', index=False)
         conn.commit(); conn.close(); st.rerun()
 
-    pdf_bytes = create_pdf_data(edited_df)
-    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=bytes(pdf_bytes), 
+    # ISPRAVKA: Pozivanje funkcije bez direktnog ispisa (rešava "None" problem)
+    pdf_output = create_pdf_data(edited_df)
+    
+    st.download_button(label="📥 PREUZMI PDF IZVEŠTAJ", data=pdf_output, 
                        file_name=f"Izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
                        mime="application/pdf", use_container_width=True)
 
 # ==========================================
-# 5. SIDEBAR (BACKUP, RESTORE, DELETE)
+# 5. SIDEBAR
 # ==========================================
 st.sidebar.title("⚙️ Administracija")
 
