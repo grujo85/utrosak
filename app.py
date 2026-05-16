@@ -33,7 +33,7 @@ class PDFSpec(FPDF):
             self.set_font("Helvetica", "B", 14)
             
         self.cell(0, 10, "SPECIFIKACIJA RADOVA", ln=True, align="R")
-        self.cell(0, 10, "UTROSAK MATERIJALA", ln=True, align="R")
+        self.cell(0, 8, "UTROSAK MATERIJALA", ln=True, align="R")
         
         if os.path.exists(FONT_REG):
             self.set_font("DejaVu", "", 9)
@@ -110,8 +110,8 @@ class ElektroProUltra:
             
         # Pomoćna funkcija koja crta plavo zaglavlje za prvu tabelu
         def nacrtaj_zaglavlje_specifikacije():
-            pdf.set_fill_color(49, 130, 206) # Streamlit plava
-            pdf.set_text_color(255) # Bela slova
+            pdf.set_fill_color(49, 130, 206) 
+            pdf.set_text_color(255) 
             if font_ime == "DejaVu":
                 pdf.set_font("DejaVu", "", 9)
             else:
@@ -130,14 +130,16 @@ class ElektroProUltra:
         pdf.set_font(font_ime, "", 8)
         df_clean = df.dropna(subset=['datum', 'orman', 'tip'])
         
+        # --- DODATO SORTIRANJE ZA PRVU TABELU (PO TIPU MATERIJALA - AZBUČNI RED) ---
+        if not df_clean.empty:
+            df_clean = df_clean.sort_values(by='tip', ascending=True, key=lambda col: col.str.lower()).reset_index(drop=True)
+        
         for _, r in df_clean.iterrows():
-            # --- KLJUČNA PROVERA: Da li trenutni red (visine 8mm) može da stane na trenutni list? ---
-            # 297mm (A4 visina) - 15mm (donja margina) = 282mm je maksimalna visina za pisanje.
             if pdf.get_y() + 8 > 282:
-                pdf.add_page() # Otvori novi list
-                nacrtaj_zaglavlje_specifikacije() # Ponovo nacrtaj plave kolone na vrhu novog lista
-                pdf.set_text_color(0) # Resetuj boju teksta na crnu
-                pdf.set_font(font_ime, "", 8) # Resetuj font na standardni
+                pdf.add_page() 
+                nacrtaj_zaglavlje_specifikacije() 
+                pdf.set_text_color(0) 
+                pdf.set_font(font_ime, "", 8) 
             
             pdf.cell(22, 8, str(r['datum']), border=0, align="C")
             pdf.cell(18, 8, str(r['orman']), border=0, align="C")
@@ -149,23 +151,20 @@ class ElektroProUltra:
             pdf.cell(50, 8, nap, border=0, align="C")
             pdf.ln()
 
-        # Razmak između dve tabele
-        # Ako je kraj prve tabele preblizu dnu (manje od 60mm slobodno za zbirnu tabelu), 
-        # odmah prebaci zbirnu tabelu na ceo novi čist list.
         if pdf.get_y() + 60 > 282:
             pdf.add_page()
         else:
             pdf.ln(10)
         
         # ==============================================================================
-        # TABELA 2: ZBIRNA REKAPITULACIJA (IDENTIČNA KAO SA SLIKE)
+        # TABELA 2: ZBIRNA REKAPITULACIJA (SORTIRANA PO AZBUČNOM REDU)
         # ==============================================================================
         sirina_naziv = 130
         sirina_kol = 50
-        X_pochetna = 15 # Centriranje tabele na A4 listu
+        X_pochetna = 15 
         
         pdf.set_x(X_pochetna)
-        pdf.set_fill_color(44, 52, 70) # Tamno sivo-plava pozadina zaglavlja sa tvoje slike
+        pdf.set_fill_color(44, 52, 70) 
         pdf.set_text_color(255)
         if font_ime == "DejaVu":
             pdf.set_font("DejaVu", "", 10)
@@ -174,9 +173,8 @@ class ElektroProUltra:
             
         pdf.cell(sirina_naziv + sirina_kol, 10, "ZBIRNA REKAPITULACIJA", border=0, ln=True, align="C", fill=True)
         
-        # Reset boja za unutrašnjost tabele
         pdf.set_text_color(50, 50, 50) 
-        pdf.set_draw_color(230, 230, 230) # Tanke svetlo sive linije
+        pdf.set_draw_color(230, 230, 230) 
         pdf.set_line_width(0.2)
         
         ukupno_regali = 0.0
@@ -184,12 +182,11 @@ class ElektroProUltra:
         
         if not df_clean.empty:
             utrosak = df_clean.groupby(['tip', 'jed'])['kol'].sum().reset_index()
+            utrosak = utrosak.sort_values(by='tip', ascending=True, key=lambda col: col.str.lower()).reset_index(drop=True)
             
             for _, row in utrosak.iterrows():
-                # I ovde proveravamo da li pojedinačni red sume upada na kraj stranice
                 if pdf.get_y() + 9 > 282:
                     pdf.add_page()
-                    # Ako pređe na novu stranu, dajemo mali podsetnik naslova
                     pdf.set_x(X_pochetna)
                     pdf.set_fill_color(44, 52, 70)
                     pdf.set_text_color(255)
@@ -222,7 +219,7 @@ class ElektroProUltra:
                 pdf.ln()
                 
         # --- RED 1 ZA ZBIR: SVI REGALI ZAJEDNO ---
-        if pdf.get_y() + 20 > 282: # Osiguranje da oba zbira ostanu na istom listu
+        if pdf.get_y() + 20 > 282: 
             pdf.add_page()
             
         pdf.set_x(X_pochetna)
@@ -239,8 +236,8 @@ class ElektroProUltra:
         
         # --- RED 2 ZA ZBIR: UKUPNO SVIH KABLOVA ---
         pdf.set_x(X_pochetna)
-        pdf.set_fill_color(230, 242, 255) # Svetlo plava sa slike
-        pdf.set_text_color(49, 130, 206) # Jaka plava slova
+        pdf.set_fill_color(230, 242, 255) 
+        pdf.set_text_color(49, 130, 206) 
         
         pdf.cell(sirina_naziv, 10, " UKUPNO SVIH KABLOVA (m)", border="B", align="L", fill=True)
         pdf.cell(sirina_kol, 10, f"{ukupno_kablovi:.2f} m ", border="B", align="R", fill=True)
