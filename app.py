@@ -130,9 +130,13 @@ class ElektroProUltra:
         pdf.set_font(font_ime, "", 8)
         df_clean = df.dropna(subset=['datum', 'orman', 'tip'])
         
-        # --- DODATO SORTIRANJE ZA PRVU TABELU (PO TIPU MATERIJALA - AZBUČNI RED) ---
+        # --- KLJUČNA IZMENA: Sortiranje primarno po ORMANU, pa onda po TIPU MATERIJALA ---
         if not df_clean.empty:
-            df_clean = df_clean.sort_values(by='tip', ascending=True, key=lambda col: col.str.lower()).reset_index(drop=True)
+            df_clean = df_clean.sort_values(
+                by=['orman', 'tip'], 
+                ascending=[True, True], 
+                key=lambda col: col.str.lower() if col.name in ['orman', 'tip'] else col
+            ).reset_index(drop=True)
         
         for _, r in df_clean.iterrows():
             if pdf.get_y() + 8 > 282:
@@ -157,7 +161,7 @@ class ElektroProUltra:
             pdf.ln(10)
         
         # ==============================================================================
-        # TABELA 2: ZBIRNA REKAPITULACIJA (SORTIRANA PO AZBUČNOM REDU)
+        # TABELA 2: ZBIRNA REKAPITULACIJA (Ostaje sortirana globalno po azbuci materijala)
         # ==============================================================================
         sirina_naziv = 130
         sirina_kol = 50
