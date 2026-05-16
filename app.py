@@ -93,10 +93,12 @@ class ElektroProUltra:
             conn.execute("DELETE FROM radovi")
 
     def generisi_pdf(self, df, tm, tk):
+        # Inicijalizacija PDF-a sa automatskim prelaskom na novu stranu (margina 15mm)
         pdf = PDFSpec()
+        pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
         
-        # Postavljanje fonta za glavnu tabelu
+        # Provera fonta
         if os.path.exists(FONT_REG):
             pdf.add_font("DejaVu", "", FONT_REG, uni=True)
             pdf.set_font("DejaVu", "", 8)
@@ -135,54 +137,88 @@ class ElektroProUltra:
 
         pdf.ln(10)
         
-        # --- TABELA 2: SUMARNI UTROSAK ---
-        if font_ime == "DejaVu":
-            pdf.set_font("DejaVu", "", 11)
-        else:
-            pdf.set_font("Helvetica", "B", 11)
-            
-        pdf.set_text_color(49, 130, 206)
-        pdf.cell(0, 10, "SUMARNI UTROSAK MATERIJALA:", ln=True)
+        # ==============================================================================
+        # TABELA 2: ZBIRNA REKAPITULACIJA (IDENTIČNA KAO SA SLIKE)
+        # ==============================================================================
+        # Širine kolona: Naziv (130mm), Količina (50mm) -> Ukupno 180mm (centrirano na A4)
+        sirina_naziv = 130
+        sirina_kol = 50
+        X_pochetna = 15 # Pomera tabelu na sredinu stranice
         
-        pdf.set_text_color(0)
+        pdf.set_x(X_pochetna)
+        # Tamno plavo zaglavlje (RGB: 44, 52, 70 - Navy siva sa slike)
+        pdf.set_fill_color(44, 52, 70)
+        pdf.set_text_color(255)
         if font_ime == "DejaVu":
-            pdf.set_font("DejaVu", "", 9)
+            pdf.set_font("DejaVu", "", 10)
         else:
-            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_font("Helvetica", "B", 10)
             
-        pdf.set_fill_color(235, 235, 235)
-        pdf.cell(100, 8, "Materijal", border=0, fill=True, align="C")
-        pdf.cell(30, 8, "Kolicina", border=0, fill=True, align="C")
-        pdf.cell(30, 8, "Jedinica", border=0, fill=True, align="C")
-        pdf.ln()
-
-        pdf.set_font(font_ime, "", 9)
+        # Spojeno zaglavlje širine 180mm
+        pdf.cell(sirina_naziv + sirina_kol, 10, "ZBIRNA REKAPITULACIJA", border=0, ln=True, align="C", fill=True)
+        
+        # Reset boja za unutrašnje redove tabele
+        pdf.set_text_color(50, 50, 50) # Tamno sivi tekst za stavke
+        pdf.set_draw_color(230, 230, 230) # Vrlo svetle, tanke linije bordersa
+        pdf.set_line_width(0.2)
+        
+        ukupno_regali = 0.0
+        ukupno_kablovi = 0.0
+        
         if not df_clean.empty:
+            # Grupisanje podataka po tipu i jedinici
             utrosak = df_clean.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-            for _, row in utrosak.iterrows():
-                pdf.cell(100, 7, str(row['tip']), border=0, align="C")
-                pdf.cell(30, 7, f"{row['kol']:.2f}", border=0, align="C")
-                pdf.cell(30, 7, str(row['jed']), border=0, align="C")
-                pdf.ln()
-
-        # --- UOKVIRENI ZAKLJUČAK (UKUPNO KABLOVA) ---
-        pdf.ln(10)
-        pdf.set_draw_color(49, 130, 206) 
-        pdf.set_fill_color(235, 248, 255) 
-        pdf.set_line_width(0.5)
-        
-        txt = f"UKUPNO KABLOVA: {tm:.2f} m | {int(tk)} kom"
-        sirina_boxa = 100
-        x_pozicija = 190 - sirina_boxa 
-        
-        if font_ime == "DejaVu":
-            pdf.set_font("DejaVu", "", 12)
-        else:
-            pdf.set_font("Helvetica", "B", 12)
             
-        pdf.rect(x_pozicija, pdf.get_y(), sirina_boxa, 12, 'FD')
-        pdf.set_x(x_pozicija)
-        pdf.cell(sirina_boxa, 12, txt, border=0, align="C")
+            for _, row in utrosak.iterrows():
+                tip_naziv = str(row['tip'])
+                kolicina_val = float(row['kol'])
+                jedinica_naziv = str(row['jed'])
+                
+                # Računanje zbirova u pozadini
+                if "REGAL" in tip_naziv.upper():
+                    ukupno_regali += kolicina_val
+                elif any(x in tip_naziv.upper() for x in ["PP-Y", "N2XH", "FE180", "PP00", "H07RN", "LIYCY", "P/F", "SKS", "CAT"]):
+                    ukupno_kablovi += kolicina_val
+                
+                # Ispis reda (Naziv materijala sa jedinicom)
+                pdf.set_x(X_pochetna)
+                if font_ime == "DejaVu":
+                    pdf.set_font("DejaVu", "", 9)
+                else:
+                    pdf.set_font("Helvetica", "", 9)
+                    
+                # Donja linija (B) se iscrtava za efekat tabele sa slike
+                pdf.cell(sirina_naziv, 9, f" {tip_naziv} ({jedinica_naziv})", border="B", align="L")
+                
+                # Količina (Boldovana i desno poravnata)
+                if font_ime == "DejaVu":
+                    pdf.set_font("DejaVu", "", 9) # Na DejaVu fontu simuliramo izgled
+                else:
+                    pdf.set_font("Helvetica", "B", 9)
+                pdf.cell(sirina_kol, 9, f"{kolicina_val:.2f} ", border="B", align="R")
+                pdf.ln()
+                
+        # --- RED 1 ZA ZBIR: SVI REGALI ZAJEDNO ---
+        pdf.set_x(X_pochetna)
+        pdf.set_fill_color(240, 244, 248) # Blago sivo-plava pozadina reda sa slike
+        pdf.set_text_color(20, 30, 55)
+        if font_ime == "DejaVu":
+            pdf.set_font("DejaVu", "", 10)
+        else:
+            pdf.set_font("Helvetica", "B", 10)
+            
+        # Gornja i donja jača linija za zbir
+        pdf.cell(sirina_naziv, 10, " SVI REGALI ZAJEDNO (m)", border="TB", align="L", fill=True)
+        pdf.cell(sirina_kol, 10, f"{ukupno_regali:.2f} m ", border="TB", align="R", fill=True)
+        pdf.ln()
+        
+        # --- RED 2 ZA ZBIR: UKUPNO SVIH KABLOVA ---
+        pdf.set_x(X_pochetna)
+        pdf.set_fill_color(230, 242, 255) # Karakteristična plava boja pozadine sa tvoje slike
+        pdf.set_text_color(49, 130, 206) # Kraljevsko plava boja slova
+        
+        pdf.cell(sirina_naziv, 10, " UKUPNO SVIH KABLOVA (m)", border="B", align="L", fill=True)
+        pdf.cell(sirina_kol, 10, f"{ukupno_kablovi:.2f} m ", border="B", align="R", fill=True)
         
         return pdf.output()
 
