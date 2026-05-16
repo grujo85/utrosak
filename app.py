@@ -6,69 +6,96 @@ import os
 from fpdf import FPDF
 
 # ==============================================================================
-# 1. KONFIGURACIJA STREAMLIT APLIKACIJE
+# 1. APPLICATION ENVIRONMENT & CONFIGURATION
 # ==============================================================================
-# Postavljamo osnovna podešavanja stranice u veb brauzeru
+# Globalna inicijalizacija Streamlit klijentskog konteksta i renderovnih parametara.
 st.set_page_config(
-    page_title="ELEKTRO-LOG BUSINESS v1.1",  # Naslov koji piše na tabu brauzera
-    layout="wide",                           # Široki prikaz (iskorišćava ceo ekran)
-    initial_sidebar_state="expanded"         # Bočni meni (sidebar) je otvoren pri pokretanju
+    page_title="ELEKTRO-LOG BUSINESS v1.1",  # Unikatni identifikator aplikacije unutar DOM-a browsera
+    layout="wide",                           # Maksimizacija horizontalnog viewport-a (fluidni raspored)
+    initial_sidebar_state="expanded"         # Perzistencija stanja bočne navigacione konzole
 )
 
-# Definisanje naziva fajla za font koji podržava naša slova (Š, Ć, Č, Ž, Đ)
+# Definisanje apsolutne/relativne putanje do TrueType resursa za UTF-8 mapiranje karaktera
 FONT_REG = "DejaVuSans.ttf"
 
 # ==============================================================================
-# 2. KLASA ZA PDF GENERISANJE (Podklasa FPDF-a)
+# 2. DOCUMENT ARCHITECTURE & RENDER ENGINE (FPDF Wrapper)
 # ==============================================================================
 class PDFSpec(FPDF):
-    # Automatska funkcija koja se izvršava na početku SVAKE nove stranice PDF-a
+    """
+    Subklasa izvedena iz FPDF jezgra, specijalizovana za strukturno formatiranje,
+    generisanje repetitivnih zaglavlja (Header), podnožja (Footer) i kontrolu
+    preloma stranica (Page-break boundary) kod tehničkih specifikacija.
+    """
+    
     def header(self):
-        # Ako logo "elmar.webp" postoji u folderu, ubaci ga u gornji levi ugao
+        """
+        Iscrtavanje zaglavlja dokumenta. Izvršava se automatski pri svakoj 
+        alokaciji nove stranice unutar PDF generatora.
+        """
+        # Evaluacija prisustva i asinhroni pokušaj renderovanja korporativnog logotipa
         if os.path.exists("elmar.webp"):
-            try: self.image("elmar.webp", 10, 8, 33) # Pozicija X=10, Y=8, širina=33mm
-            except: pass                             # Ako slika ima grešku, ignoriši i nastavi
+            try: 
+                self.image("elmar.webp", 10, 8, 33)  # Geometrijska alokacija: X=10mm, Y=8mm, W=33mm
+            except Exception: 
+                pass  # Fail-safe mehanizam: sprečavanje prekida niti u slučaju korumpiranog resursa
             
-        # Provera i učitavanje fonta za ispravan prikaz naših specifičnih slova
+        # --- Hijerarhijski Nivo 1: Primarni Naslov ---
         if os.path.exists(FONT_REG):
-            self.add_font("DejaVu", "", FONT_REG, uni=True) # Registrovanje UTF-8 fonta
-            self.set_font("DejaVu", "", 14)                # Postavljanje fonta na veličinu 14
+            self.add_font("DejaVu", "", FONT_REG, uni=True)
+            self.set_font("DejaVu", "", 14)
         else:
-            self.set_font("Helvetica", "B", 14)             # Ako fonta nema, koristi standardni Helvetica Bold
+            self.set_font("Helvetica", "B", 14)  # Fallback strategija na nativni font u slučaju odsustva TTF-a
             
-        # Desno poravnati naslovi u zaglavlju dokumenta
         self.cell(0, 10, "SPECIFIKACIJA RADOVA", ln=True, align="R")
-        self.cell(0, 8, "UTROSAK MATERIJALA", ln=True, align="R")
         
-        # Smanjujemo font za datum izrade
+        # --- Hijerarhijski Nivo 2: Sekundarni Naslov (Podnaslov) ---
+        if os.path.exists(FONT_REG):
+            self.set_font("DejaVu", "", 10)  
+        else:
+            self.set_font("Helvetica", "B", 10)
+            
+        self.cell(0, 8, "UTROSAK MATERIJALA", ln=True, align="R")
+
+        # --- Hijerarhijski Nivo 3: Vremenski Metapodaci ---
         if os.path.exists(FONT_REG):
             self.set_font("DejaVu", "", 9)
         else:
             self.set_font("Helvetica", "", 9)
             
-        # Ispisivanje trenutnog datuma u gornjem desnom uglu
+        # Dinamičko formatiranje vremenskog pečata prema ISO/IEC standardu lokalizacije (DD.MM.YYYY)
         self.cell(0, 10, f"Datum izrade: {datetime.now().strftime('%d.%m.%Y')}", ln=True, align="R")
-        self.ln(10) # Pravimo prazan prostor od 10mm pre nego što počne tabela
+        self.ln(10)  # Skalarni vertikalni ofset (10mm pad) pre inicijalizacije tabularnog segmenta
 
-    # Automatska funkcija koja se izvršava na dnu SVAKE stranice PDF-a
     def footer(self):
-        self.set_y(-15) # Pozicioniranje na 15mm od dna stranice
+        """
+        Iscrtavanje podnožja stranice sa zaštićenim metapodacima i pravima pristupa.
+        Sadrži fiksno relativno pozicioniranje u odnosu na donju marginu (Y-offset).
+        """
+        self.set_y(-15)  # Pozicioniranje na marginu od -15mm u odnosu na kraj matrice stranice
+        
         if os.path.exists(FONT_REG):
             self.set_font("DejaVu", "", 8)
         else:
-            self.set_font("Helvetica", "I", 8) # Italika (iskošena slova) za standardni font
-        self.set_text_color(128) # Postavljanje sive boje teksta
-        # Centralno poravnat potpis na dnu
+            self.set_font("Helvetica", "I", 8)  # Tipografski stil: Kurziv (Italic) za sistemski fallback
+            
+        self.set_text_color(128)  # Postavljanje neutralnog sivo-tonskog kanala (Grayscale: 128)
         self.cell(0, 10, "ELMAR ELEKTRO-INSTALACIJE | DESIGN VLADE 2026", align="C")
 
 # ==============================================================================
-# 3. GLAVNA KLASA ZA LOGIKU I RAD SA BAZOM PODATAKA
+# 3. DATA ACCESS LAYER & BUSINESS LOGIC ENGINE
 # ==============================================================================
 class ElektroProUltra:
+    """
+    Glavni poslovni kontroler (Controller/Service Layer).
+    Enkapsulira šifarnik materijala, upravlja stanjem SQLite baze podataka,
+    izvršava CRUD operacije i implementira algoritme za agregaciju i eksport podataka.
+    """
     def __init__(self):
-        self.db_name = "elektro_baza.db" # Naziv SQLite fajla baze podataka
+        """Inicijalizacija klase, postavljanje parametara konekcije i provera integriteta šeme."""
+        self.db_name = "elektro_baza.db"  
         
-        # Veliki rečnik (Dictionary) sa strukturiranim materijalima po kategorijama
+        # Centralizovani šifarnik i nomenklatura artikala strukturirana po tehnološkim celinama
         self.kategorije_materijala = {
             "Nosaci i oprema": [
                 "Regal 50", "Regal 100", "Regal 150", "Regal 200", "Regal 300", "Regal 400", "Regal 500", "Regal 600",
@@ -157,40 +184,63 @@ class ElektroProUltra:
                 "KONEKTOVANJE RJ45/Keystone", "ZAVRŠAVANJE KABLA (Mufiranje)", "ISPITIVANJE INSTALACIJE", "MERENJE OTPORA UZEMLJENJA", "IZDAVANJE ATESTA"
             ]
         }
-        self.kreiraj_bazu() # Pri svakom pokretanju proveravamo da li tabela postoji
+        self.kreiraj_bazu()
 
-    # Funkcija kreira SQLite tabelu ako ona već ne postoji u fajlu
     def kreiraj_bazu(self):
+        """
+        Izvršava DDL naredbu za kreiranje relacione tabele ukoliko ona ne postoji u skladištu.
+        Inicijalizuje bazični indeks i tipove podataka kolona.
+        """
         with sqlite3.connect(self.db_name) as conn:
             conn.execute("""CREATE TABLE IF NOT EXISTS radovi 
                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                 datum TEXT, orman TEXT, opis TEXT, tip TEXT, 
                 kol REAL, jed TEXT, napomena TEXT)""")
 
-    # Funkcija upisuje novu stavku (red) u bazu podataka
     def sacuvaj_u_bazu(self, d):
+        """
+        Ubacuje novi entitet u bazu podataka primenom parametrizovanog upita.
+        
+        :param d: tuple koji sadrži vrednosti (datum, orman, opis, tip, kol, jed, napomena)
+        :type d: tuple
+        """
         with sqlite3.connect(self.db_name) as conn:
             conn.execute("INSERT INTO radovi (datum, orman, opis, tip, kol, jed, napomena) VALUES (?,?,?,?,?,?,?)", d)
 
-    # Sigurna funkcija za sinhronizaciju izmena iz tabele na ekranu direktno u bazu
     def azuriraj_bazu(self, df_izmenjen):
+        """
+        Osvežava kompletno stanje baze podataka. Koristi transakcionu metodu
+        brisanja celokupne tabele (Flush) i naknadnog unosa novog stanja iz DataFrame-a.
+        
+        :param df_izmenjen: Modifikovani podaci prosleđeni sa UI interfejsa.
+        :type df_izmenjen: pandas.DataFrame
+        """
         with sqlite3.connect(self.db_name) as conn:
-            conn.execute("DELETE FROM radovi") # Prvo brišemo sve stare podatke
-            # Zatim upisujemo kompletnu novu tabelu bez menjanja strukture tabele
+            conn.execute("DELETE FROM radovi")  # Kaskadni reset podataka unutar transakcije
             df_izmenjen.to_sql("radovi", conn, if_exists="append", index=False)
 
-    # Funkcija za potpuno pražnjenje baze podataka
     def obrisi_sve(self):
+        """Izvršava destruktivnu operaciju brisanja svih redova u tabeli (Truncate ekvivalent)."""
         with sqlite3.connect(self.db_name) as conn:
             conn.execute("DELETE FROM radovi")
 
-    # GLAVNA FUNKCIJA ZA KREIRANJE PDF DOKUMENTA
     def generisi_pdf(self, df, tm, tk):
-        pdf = PDFSpec()
-        pdf.set_auto_page_break(auto=True, margin=15) # Ako tekst pređe donju marginu (na 15mm), otvara se nova strana
-        pdf.add_page() # Otvaranje prve stranice (automatski okida i funkciju header())
+        """
+        Glavni algoritam za transformaciju skladištenih podataka u strukturirani PDF dokument.
+        Implementira logiku preloma stranica i kalkulaciju kumulativne rekapitulacije materijala.
         
-        # Podešavanje fonta unutar same tabele
+        :param df: Skup podataka za generisanje specifikacije
+        :param tm: Sumarna vrednost metara kabla (prosledđeno sa UI-ja)
+        :param tk: Sumarna vrednost komadnih stavki kablova
+        :type df: pandas.DataFrame
+        :return: Binarni tok (raw bytes) generisanog PDF-a
+        :rtype: bytes
+        """
+        pdf = PDFSpec()
+        pdf.set_auto_page_break(auto=True, margin=15)  # Graničnik preloma stranice na 15mm od dna
+        pdf.add_page()
+        
+        # Konfiguracija radnog fonta podsistema u zavisnosti od sistemskih resursa
         if os.path.exists(FONT_REG):
             pdf.add_font("DejaVu", "", FONT_REG, uni=True)
             pdf.set_font("DejaVu", "", 8)
@@ -199,30 +249,28 @@ class ElektroProUltra:
             pdf.set_font("Helvetica", "", 8)
             font_ime = "Helvetica"
             
-        # Unutrašnja funkcija koja crta plavo zaglavlje za glavnu tabelu specifikacije
         def nacrtaj_zaglavlje_specifikacije():
-            pdf.set_fill_color(49, 130, 206)  # Svetlo plava boja (RGB)
-            pdf.set_text_color(255)           # Bela boja teksta
+            """Generiše stilizovano zaglavlje primarne tabele sa fiksnim širinama kolona (Total: 197mm)."""
+            pdf.set_fill_color(49, 130, 206)  # Korporativna nijansa: Material Blue
+            pdf.set_text_color(255)           # Kontrastna bela boja teksta
             if font_ime == "DejaVu":
                 pdf.set_font("DejaVu", "", 9)
             else:
                 pdf.set_font("Helvetica", "B", 9)
             
-            # Definisanje naziva kolona i njihovih širina u milimetrima (ukupno 197mm)
             cols = [("Datum", 22), ("RO", 18), ("Krug", 15), ("Tip materijala", 60), ("Kol", 15), ("Jed", 10), ("Napomena", 50)]
             for col_name, width in cols:
-                pdf.cell(width, 10, col_name, border=0, align="C", fill=True) # fill=True boji pozadinu ćelije
-            pdf.ln() # Prelazak u novi red
+                pdf.cell(width, 10, col_name, border=0, align="C", fill=True)
+            pdf.ln()
 
-        # Crtamo prvo zaglavlje na samom početku dokumenta
+        # Inicijalno generisanje strukture tabele
         nacrtaj_zaglavlje_specifikacije()
 
-        # Priprema podataka za ispisivanje stavki
-        pdf.set_text_color(0) # Vraćamo boju teksta na crnu
+        pdf.set_text_color(0)  # Vraćanje boje fonta na crnu (Grayscale: 0)
         pdf.set_font(font_ime, "", 8)
-        df_clean = df.dropna(subset=['datum', 'orman', 'tip']) # Čistimo redove koji nemaju osnovne podatke
+        df_clean = df.dropna(subset=['datum', 'orman', 'tip'])  # Data cleaning: uklanjanje nepotpunih redova
         
-        # SORTIRANJE: Prvo po Ormanu (RO), pa unutar tog ormana po Tipu materijala po azbuci
+        # Sortiranje skupa podataka: Primarno po oznaci razvodnog ormana, sekundarno po nazivu artikla
         if not df_clean.empty:
             df_clean = df_clean.sort_values(
                 by=['orman', 'tip'], 
@@ -230,16 +278,15 @@ class ElektroProUltra:
                 key=lambda col: col.str.lower() if col.name in ['orman', 'tip'] else col
             ).reset_index(drop=True)
         
-        # Prolazimo kroz svaki red očišćene tabele i ispisujemo ga u PDF
+        # Iterativno mapiranje redova iz DataFrame-a u ćelije PDF dokumenta
         for _, r in df_clean.iterrows():
-            # Provera visine: ako sledeći red (visine 8mm) prelazi 282mm (visina A4 je 297mm - 15mm margina), otvori novu stranu
+            # Prediktivna provera prostora: Ako novi red (8mm) narušava marginu, vrši se alokacija nove stranice
             if pdf.get_y() + 8 > 282:
                 pdf.add_page() 
-                nacrtaj_zaglavlje_specifikacije() # Na novoj strani ponovo nacrtaj plavo zaglavlje
+                nacrtaj_zaglavlje_specifikacije()  
                 pdf.set_text_color(0) 
                 pdf.set_font(font_ime, "", 8) 
             
-            # Ispis pojedinačnih ćelija u redu
             pdf.cell(22, 8, str(r['datum']), border=0, align="C")
             pdf.cell(18, 8, str(r['orman']), border=0, align="C")
             pdf.cell(15, 8, str(r['opis']), border=0, align="C")
@@ -248,48 +295,44 @@ class ElektroProUltra:
             pdf.cell(10, 8, str(r['jed']), border=0, align="C")
             nap = str(r['napomena']) if r['napomena'] and str(r['napomena']) != 'None' else ""
             pdf.cell(50, 8, nap, border=0, align="C")
-            pdf.ln() # Prelazak u novi red za sledeću stavku
+            pdf.ln()
 
-        # Provera prostora pre crtanja druge tabele (Rekapitualcije)
+        # Alokacija prostora za sekundarnu tabelu (Zbirna Rekapitulacija)
         if pdf.get_y() + 60 > 282:
-            pdf.add_page() # Ako nema dovoljno mesta za zaglavlje i bar par redova, prebaci na novu stranu
+            pdf.add_page()
         else:
-            pdf.ln(10) # Inače napravi razmak od 10mm
+            pdf.ln(10)
         
         # ----------------------------------------------------------------------
-        # TABELA 2: ZBIRNA REKAPITULACIJA PODATAKA
+        # REKAPITULACIONA MATRICA RADOVA I MATERIJALA
         # ----------------------------------------------------------------------
-        sirina_naziv = 130  # Širina kolone za naziv materijala
-        sirina_kol = 50     # Širina kolone za ukupnu količinu
-        X_pochetna = 15     # Pomeramo tabelu malo udesno (centriranje na stranici)
+        sirina_naziv = 130  
+        sirina_kol = 50     
+        X_pochetna = 15     # Pomeraj udesno radi postizanja optičke simetrije na A4 formatu
         
         pdf.set_x(X_pochetna)
-        pdf.set_fill_color(44, 52, 70)  # Tamno siva/teget boja pozadine zaglavlja rekapitulacije
-        pdf.set_text_color(255)          # Bela boja teksta
+        pdf.set_fill_color(44, 52, 70)  # Akcentovana tamna boja (Slate Gray) za zaglavlje rekapitulacije
+        pdf.set_text_color(255)
         if font_ime == "DejaVu":
             pdf.set_font("DejaVu", "", 10)
         else:
             pdf.set_font("Helvetica", "B", 10)
             
-        # Naslovni red Zbirne rekapitulacije
         pdf.cell(sirina_naziv + sirina_kol, 10, "ZBIRNA REKAPITULACIJA", border=0, ln=True, align="C", fill=True)
         
-        pdf.set_text_color(50, 50, 50)     # Tamno siva boja slova za stavke
-        pdf.set_draw_color(230, 230, 230) # Vrlo svetlo siva boja za horizontalne linije (border)
-        pdf.set_line_width(0.2)            # Tanka linija borders-a
+        pdf.set_text_color(50, 50, 50)     
+        pdf.set_draw_color(230, 230, 230) # Soft-gray grid linije
+        pdf.set_line_width(0.2)            
         
-        # Promenljive u kojima ćemo sabirati ukupne količine svih regala i svih kablova
         ukupno_regali = 0.0
         ukupno_kablovi = 0.0
         
         if not df_clean.empty:
-            # Grupisanje podataka: Saberi sve količine ('kol') za isti 'tip' i istu 'jed' (jedinicu mere)
+            # Agregacija podataka: Grupisanje i sumiranje kvantiteta po tipu i jedinici mere
             utrosak = df_clean.groupby(['tip', 'jed'])['kol'].sum().reset_index()
-            # Sortiranje rekapitulacije po abecedi naziva materijala
             utrosak = utrosak.sort_values(by='tip', ascending=True, key=lambda col: col.str.lower()).reset_index(drop=True)
             
             for _, row in utrosak.iterrows():
-                # Provera visine za svaki red rekapitulacije
                 if pdf.get_y() + 9 > 282:
                     pdf.add_page()
                     pdf.set_x(X_pochetna)
@@ -303,11 +346,9 @@ class ElektroProUltra:
                 kolicina_val = float(row['kol'])
                 jedinica_naziv = str(row['jed'])
                 
-                # LOGIKA SABIRANJA ZA UKUPNE ZBIRE NA DNU:
-                # Ako naziv sadrži reč "REGAL", dodaj u zbir regala
+                # Evaluacija stringova i klasifikacija elemenata u makro-kategorije (Regali vs Kablovi)
                 if "REGAL" in tip_naziv.upper():
                     ukupno_regali += kolicina_val
-                # Ako naziv sadrži neku od oznaka kablova, dodaj u zbir kablova
                 elif any(x in tip_naziv.upper() for x in ["PP-Y", "N2XH", "FE180", "PP00", "H07RN", "LIYCY", "P/F", "SKS", "CAT"]):
                     ukupno_kablovi += kolicina_val
                 
@@ -317,10 +358,8 @@ class ElektroProUltra:
                 else:
                     pdf.set_font("Helvetica", "", 9)
                     
-                # Ispis naziva artikla sa donjom linijom ("B")
                 pdf.cell(sirina_naziv, 9, f" {tip_naziv} ({jedinica_naziv})", border="B", align="L")
                 
-                # Ispis količine (formatirane na 2 decimale) sa desnim poravnanjem
                 if font_ime == "DejaVu":
                     pdf.set_font("DejaVu", "", 9)
                 else:
@@ -328,139 +367,127 @@ class ElektroProUltra:
                 pdf.cell(sirina_kol, 9, f"{kolicina_val:.2f} ", border="B", align="R")
                 pdf.ln()
                 
-        # --- UKUPAN RED 1: SUMA SVIH REGALA ---
+        # --- Sumarni red 1: Zbirni kvantitet nosača kablova ---
         if pdf.get_y() + 20 > 282: 
             pdf.add_page()
             
         pdf.set_x(X_pochetna)
-        pdf.set_fill_color(240, 244, 248) # Svetlo sivo-plava pozadina za isticanje
-        pdf.set_text_color(20, 30, 55)     # Tamni tekst
+        pdf.set_fill_color(240, 244, 248) 
+        pdf.set_text_color(20, 30, 55)     
         if font_ime == "DejaVu":
             pdf.set_font("DejaVu", "", 10)
         else:
             pdf.set_font("Helvetica", "B", 10)
             
-        pdf.cell(sirina_naziv, 10, " SVI REGALI ZAJEDNO (m)", border="TB", align="L", fill=True) # TB = Top i Bottom border
+        pdf.cell(sirina_naziv, 10, " SVI REGALI ZAJEDNO (m)", border="TB", align="L", fill=True) 
         pdf.cell(sirina_kol, 10, f"{ukupno_regali:.2f} m ", border="TB", align="R", fill=True)
         pdf.ln()
         
-        # --- UKUPAN RED 2: SUMA SVIH KABLOVA ---
+        # --- Sumarni red 2: Zbirni kvantitet elektroprovodnika ---
         pdf.set_x(X_pochetna)
-        pdf.set_fill_color(230, 242, 255) # Svetlo plava pozadina
-        pdf.set_text_color(49, 130, 206)  # Plava boja teksta (podudara se sa temom aplikacije)
+        pdf.set_fill_color(230, 242, 255) 
+        pdf.set_text_color(49, 130, 206)  
         
         pdf.cell(sirina_naziv, 10, " UKUPNO SVIH KABLOVA (m)", border="B", align="L", fill=True)
         pdf.cell(sirina_kol, 10, f"{ukupno_kablovi:.2f} m ", border="B", align="R", fill=True)
         
-        return pdf.output() # Vraća generisani PDF kao raw bajtove spremne za preuzimanje
+        return pdf.output()
 
 # ==============================================================================
-# 4. KORISNIČKI INTERFEJS (STREAMLIT WEB APP)
+# 4. PRESENTATION LAYER (Streamlit UI Execution Context)
 # ==============================================================================
-# Inicijalizujemo našu klasu sa logikom
+# Inicijalizacija poslovnog kontrolera aplikacije
 app = ElektroProUltra()
 
-# BOČNI MENI (SIDEBAR) - Za sistemske operacije (Backup i Restore baze)
+# Konzola bočnog menija: Upravljanje sistemskim resursima, IO operacije i administracija baze
 with st.sidebar:
     st.header("⚙️ SISTEM")
-    # Provera da li fajl baze uopšte postoji da bismo ponudili dugme za download
+    
+    # Provera postojanja skladišta za omogućavanje eksporta baze podataka
     if os.path.exists(app.db_name):
         with open(app.db_name, "rb") as f:
             st.sidebar.download_button("📥 PREUZMI BACKUP", f, file_name="elektro_baza.db", use_container_width=True)
     st.divider()
     
-    # Polje za učitavanje (upload) eksternog .db fajla radi povratka podataka
+    # Mehanizam za uvoz eksternog SQL skladišta (Restore baze podataka)
     f_res = st.file_uploader("Restore .db", type="db")
     if f_res and st.button("⚠️ POTVRDI RESTORE", use_container_width=True):
         with open(app.db_name, "wb") as f: 
-            f.write(f_res.getbuffer()) # Upisujemo bajtove učitanog fajla preko trenutne baze
-        st.rerun() # Ponovo osvežavamo aplikaciju da učita nove podatke
+            f.write(f_res.getbuffer()) 
+        st.rerun()  # Hard-refresh aplikativnog stanja (UI Thread Reset)
     st.divider()
     
-    # Sigurnosni checkbox pre nego što se omogući brisanje cele baze
+    # Sigurnosni mehanizam verifikacije pre destruktivnog brisanja podataka
     if st.checkbox("Potvrda brisanja"):
         if st.button("🔴 OBRIŠI SVE", use_container_width=True):
             app.obrisi_sve()
             st.rerun()
 
-# FORMA ZA UNOS NOVE STAVKE (Korišćenjem st.expander koji može da se skuplja/širi)
+# Korisnički interfejs za unos novih unosa (Form submission handling)
 with st.expander("📝 UNOS NOVE STAVKE", expanded=True):
-    c1, c2, c3 = st.columns(3) # Delimo ekran na 3 kolone za osnovne podatke
-    dat = c1.text_input("📅 Datum", datetime.now().strftime("%d.%m.%Y")) # Automatski nudi današnji datum
-    orm = c2.text_input("🏗️ RO").upper().strip() # Automatski pretvara unos u velika slova i briše razmake
+    c1, c2, c3 = st.columns(3)  
+    dat = c1.text_input("📅 Datum", datetime.now().strftime("%d.%m.%Y")) 
+    orm = c2.text_input("🏗️ RO").upper().strip()  # Normalizacija unosa (Sanitization)
     krug = c3.text_input("🔌 Krug")
     
-    kat_col, tip_col = st.columns(2) # Delimo donji deo na dve kolone za izbor materijala
-    # Prvi selectbox nudi nazive kategorija (ključevi našeg rečnika)
+    kat_col, tip_col = st.columns(2)  
     izab_kat = kat_col.selectbox("📁 Kategorija", options=list(app.kategorije_materijala.keys()), key="m_kat")
-    # Drugi selectbox dinamički nudi samo artikle koji pripadaju izabranoj kategoriji
     tip = tip_col.selectbox("📦 Tip materijala", options=app.kategorije_materijala[izab_kat], key="m_tip")
     
-    # Otvaramo formu za količinu i napomenu. Forme sprečavaju osvežavanje ekrana dok se ne klikne na dugme
+    # Izolovani kontekst forme radi sprečavanja prevremenog osvežavanja UI niti (Form scope)
     with st.form("forma_podaci", clear_on_submit=True):
-        c4, c5, c6 = st.columns([1, 1, 2]) # Različite širine kolona (napomena je duplo šira)
+        c4, c5, c6 = st.columns([1, 1, 2]) 
         kol = c4.number_input("Kolicina", min_value=0.0, step=0.1)
         jed = c5.selectbox("Jedinica", ["m", "kom"])
         nap = c6.text_input("📝 Napomena")
         
         if st.form_submit_button("💾 SNIMI", use_container_width=True):
-            # Validacija: Polja RO i Krug su obavezna
+            # Validacija biznis pravila: Polja 'RO' i 'Krug' su obavezni ključevi
             if orm and krug:
-                # Pozivamo funkciju za spasavanje prosleđujući joj torku (tuple) podataka
                 app.sacuvaj_u_bazu((dat, orm, krug, tip, kol, jed, nap))
-                st.rerun() # Osvežavamo ekran da se nova stavka odmah vidi u tabeli ispod
+                st.rerun()  
             else:
                 st.error("Polja 'RO' i 'Krug' ne smeju biti prazna!")
 
-# PRIKAZ I INTERAKTIVNO MENJANJE PODATAKA
+# Ekstrakcija podataka iz skladišta radi prezentacije na klijentskom UI-ju
 with sqlite3.connect(app.db_name) as conn:
-    # Čitamo sve podatke iz baze hronološki unazad (poslednje uneseno ide na vrh)
     df_prikaz = pd.read_sql_query("SELECT * FROM radovi ORDER BY id DESC", conn)
 
-# Ako baza ima podatke, prikaži statistiku, tabelu i PDF dugme
+# Uslovno renderovanje analitičke table (Dashboard) i kontrola za modifikaciju podataka
 if not df_prikaz.empty:
-    # --- LOGIKA ZA GLAVNI METRIC NA EKRANU ---
-    # Definišemo ključne reči koje označavaju prateću opremu (a ne kablove)
+    # --- Analitička segmentacija podataka na klijentskoj strani ---
     oprema_keywords = ("REGAL", "BREZON", "C-SINA", "LR ")
-    # Pravimo filter masku koja pronalazi sve redove gde se u nazivu nalazi neka od tih reči
     mask = df_prikaz['tip'].str.upper().str.contains('|'.join(oprema_keywords))
     
-    # Izbacujemo opremu (uzimamo inverziju maske pomoću ~) da nam ostanu samo kablovi
-    df_kab = df_prikaz[~mask]
-    # Sumiramo količinu svih kablova čija je jedinica mere "m"
-    s_m = df_kab[df_kab['jed'] == 'm']['kol'].sum()
-    # Sumiramo količinu svih kablova čija je jedinica mere "kom" (npr. krajevi, mufovi ukoliko postoje)
-    s_k = df_kab[df_kab['jed'] == 'kom']['kol'].sum()
+    df_kab = df_prikaz[~mask]  # Eliminacija prateće opreme iz kalkulacije provodnika
+    s_m = df_kab[df_kab['jed'] == 'm']['kol'].sum()     
+    s_k = df_kab[df_kab['jed'] == 'kom']['kol'].sum()   
 
-    # Veliki vizuelni vidžet na vrhu koji pokazuje ukupnu dužinu kablova na gradilištu
+    # Renderovanje ključnih metričkih indikatora (KPI Widget)
     st.metric("UKUPNO METARA KABLA", f"{s_m:.2f} m")
     
-    # GLAVNA INTERAKTIVNA TABELA (Data Editor)
-    # Korisnik može direktno ovde da menja bilo koje polje, briše redove ili dodaje nove
+    # Inicijalizacija interaktivne baze podataka sa podrškom za dinamičku manipulaciju redovima
     edited_df = st.data_editor(df_prikaz, use_container_width=True, hide_index=True, num_rows="dynamic", key="glavni_editor")
     
-    # Ako korisnik izmeni nešto u tabeli, mora da klikne na ovo dugme da potvrdi
     if st.button("✅ SAČUVAJ IZMENE", use_container_width=True):
-        app.azuriraj_bazu(edited_df) # Šaljemo izmenjeni DataFrame na upis u bazu
+        app.azuriraj_bazu(edited_df)  # Perzistencija novog stanja u bazu podataka
         st.rerun()
 
     st.divider()
     
-    # DUGME ZA PREUZIMANJE PDF IZVEŠTAJA
+    # Podsistem za eksport i preuzimanje generisanog PDF izveštaja
     try:
-        # Generišemo PDF preko naše funkcije i smeštamo bajtove u promenljivu pdf_out
         pdf_out = app.generisi_pdf(edited_df, s_m, s_k)
         if pdf_out:
-            # Otvaramo zvanično Streamlit preuzimanje fajlova u brauzeru
             st.download_button(
                 label="📄 PREUZMI PDF IZVESTAJ", 
-                data=bytes(pdf_out), # Pretvaramo podatke u čiste bajtove
-                file_name=f"izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", # Dinamičko ime fajla sa današnjim datumom
+                data=bytes(pdf_out), 
+                file_name=f"izvestaj_{datetime.now().strftime('%d_%m_%Y')}.pdf", 
                 mime="application/pdf",
                 use_container_width=True
             )
     except Exception as e:
-        st.error(f"Greška pri generisanju PDF-a: {e}")
+        st.error(f"Sistemska greška tokom izvršavanja PDF generatora: {e}")
 else:
-    # Ako je baza prazna, umesto svega iznad ispiši plavu info poruku
-    st.info("Baza je prazna. Unesite prve stavke kako bi se prikazao izveštaj.")
+    # Renderovanje indikatora praznog stanja sistema (Empty state UI)
+    st.info("Baza podataka je prazna. Unesite parametre u formu za generisanje analitike i izveštaja.")
